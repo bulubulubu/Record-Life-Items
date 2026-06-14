@@ -1,0 +1,115 @@
+package com.bulubulu.recordlifeitems.ui.home
+
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.bulubulu.recordlifeitems.data.AppDatabase
+import com.bulubulu.recordlifeitems.data.entity.CheckIn
+import com.bulubulu.recordlifeitems.data.entity.Project
+import com.bulubulu.recordlifeitems.data.repository.CheckInRepository
+import com.bulubulu.recordlifeitems.data.repository.ProjectRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.stateIn
+import java.time.LocalDate
+import java.time.YearMonth
+
+data class CalendarDay(
+    val date: LocalDate,
+    val isCurrentMonth: Boolean,
+    val isToday: Boolean,
+    val checkIns: List<CheckInWithProject> = emptyList()
+)
+
+data class CheckInWithProject(
+    val checkIn: CheckIn,
+    val project: Project
+)
+
+class HomeViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val database = AppDatabase.getDatabase(application)
+    private val checkInRepository = CheckInRepository(database.checkInDao())
+    private val projectRepository = ProjectRepository(database.projectDao())
+
+    private val _currentMonth = MutableStateFlow(YearMonth.now())
+    val currentMonth: StateFlow<YearMonth> = _currentMonth.asStateFlow()
+
+    private val _selectedDate = MutableStateFlow<LocalDate?>(null)
+    val selectedDate: StateFlow<LocalDate?> = _selectedDate.asStateFlow()
+
+    // All projects for mapping colors
+    val allProjects: StateFlow<List<Project>> = projectRepository.allProjects
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Calendar days with check-in indicators
+    val calendarDays: StateFlow<List<CalendarDay>> = combine(
+        _currentMonth,
+        checkInRepository.getByDateRange(
+            _currentMonth.value.atDay(1).toString(),
+            _currentMonth.value.atEndOfMonth().toString()
+        ),
+        allProjects
+    ) { month, checkIns, projects ->
+        val projectMap = projects.associateBy { it.id }
+        val checkInsByDate = checkIns.groupBy { it.date }
+        val today = LocalDate.now()
+
+        val firstDayOfMonth = month.atDay(1)
+        val lastDayOfMonth = month.atEndOfMonth()
+
+        // Padding days from previous month
+        val startDayOfWeek = firstDayOfMonth.dayOfWeek.value // 1=Monday
+        val paddingDays = (startDayOfWeek - 1) % 7
+        val startDate = firstDayOfMonth.minusDays(paddingDays.toLong())
+
+        val days = mutableListOf<CalendarDay>()
+        var currentDate = startDate
+
+        // Generate 6 weeks of days (42 days max)
+        for (i in 0 until 42) {
+            val dayCheckIns = checkInsByDate[currentDate.toString()]?.map { checkIn ->
+                CheckInWithProject(
+                    checkIn = checkIn,
+                    project = projectMap[checkIn.projectId] ?: Project(
+                        name = "Unknown",
+                        color = 0xFF999999,
+                        description = ""
+                    )
+                )
+            } ?: emptyList()
+
+            days.add(
+                CalendarDay(
+                    date = currentDate,
+                    isCurrentMonth = currentDate.month == month.month && currentDate.year == month.year,
+                    isToday = currentDate == today,
+                    checkIns = dayCheckIns
+                )
+            )
+            currentDate = currentDate.plusDays(1)
+        }
+
+        days
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun previousMonth() {
+        _currentMonth.value = _currentMonth.value.minusMonths(1)
+    }
+
+    fun nextMonth() {
+        _currentMonth.value = _currentMonth.value.plusMonths(1)
+    }
+
+    fun selectDate(date: LocalDate) {
+        _selectedDate.value = date
+    }
+
+    fun clearSelectedDate() {
+        _selectedDate.value = null
+    }
+}
