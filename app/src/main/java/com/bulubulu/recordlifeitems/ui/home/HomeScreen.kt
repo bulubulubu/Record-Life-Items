@@ -1,7 +1,9 @@
 package com.bulubulu.recordlifeitems.ui.home
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -33,13 +35,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bulubulu.recordlifeitems.data.entity.Project
 import com.bulubulu.recordlifeitems.ui.components.ProjectColorCircle
 import java.time.LocalDate
+import androidx.compose.material3.HorizontalDivider
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,7 +56,8 @@ fun HomeScreen(
     val calendarDays by viewModel.calendarDays.collectAsState()
     val selectedDate by viewModel.selectedDate.collectAsState()
     val allProjects by viewModel.allProjects.collectAsState()
-    val quickCheckInItems by viewModel.quickCheckInItems.collectAsState()
+    val scheduledForToday by viewModel.scheduledForToday.collectAsState()
+    val notScheduledToday by viewModel.notScheduledToday.collectAsState()
 
     var showDayPopup by remember { mutableStateOf(false) }
 
@@ -86,24 +92,44 @@ fun HomeScreen(
             }
 
             item {
-                // Calendar view
-                CalendarView(
-                    days = calendarDays,
-                    onDayClick = { date ->
-                        viewModel.selectDate(date)
-                        showDayPopup = true
-                    },
+                // Calendar view with swipe gesture support
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 8.dp)
-                )
+                        .pointerInput(Unit) {
+                            detectHorizontalDragGestures(
+                                onDragEnd = { /* optional: can add haptic feedback here */ },
+                                onHorizontalDrag = { _, dragAmount ->
+                                    // Swipe left = negative dragAmount -> next month
+                                    // Swipe right = positive dragAmount -> previous month
+                                    val threshold = 50f
+                                    if (dragAmount < -threshold) {
+                                        viewModel.nextMonth()
+                                    } else if (dragAmount > threshold) {
+                                        viewModel.previousMonth()
+                                    }
+                                }
+                            )
+                        }
+                ) {
+                    CalendarView(
+                        days = calendarDays,
+                        onDayClick = { date ->
+                            viewModel.selectDate(date)
+                            showDayPopup = true
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                    )
+                }
             }
 
             item {
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // Quick check-in section
+            // Scheduled for today section
             item {
                 Text(
                     text = "今日打卡",
@@ -113,17 +139,17 @@ fun HomeScreen(
                 )
             }
 
-            if (quickCheckInItems.isEmpty()) {
+            if (scheduledForToday.isEmpty()) {
                 item {
                     Text(
-                        text = "暂无活跃项目",
+                        text = "今日暂无需打卡的项目",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
                 }
             } else {
-                items(quickCheckInItems) { item ->
+                items(scheduledForToday) { item ->
                     QuickCheckInRow(
                         project = item.project,
                         isCheckedIn = item.isCheckedInToday,
@@ -134,6 +160,38 @@ fun HomeScreen(
                                 LocalDate.now().toString()
                             )
                         }
+                    )
+                }
+            }
+
+            // Not scheduled today section
+            if (notScheduledToday.isNotEmpty()) {
+                item {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                }
+                item {
+                    Text(
+                        text = "今日无需打卡",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                    )
+                }
+                items(notScheduledToday) { item ->
+                    QuickCheckInRow(
+                        project = item.project,
+                        isCheckedIn = item.isCheckedInToday,
+                        onToggle = { viewModel.toggleQuickCheckIn(item.project) },
+                        onClick = {
+                            onNavigateToCheckInDetail(
+                                item.project.id,
+                                LocalDate.now().toString()
+                            )
+                        },
+                        dimmed = true
                     )
                 }
             }
@@ -187,8 +245,10 @@ private fun QuickCheckInRow(
     project: Project,
     isCheckedIn: Boolean,
     onToggle: () -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    dimmed: Boolean = false
 ) {
+    val contentAlpha = if (dimmed) 0.6f else 1f
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -196,18 +256,24 @@ private fun QuickCheckInRow(
             .padding(horizontal = 16.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        ProjectColorCircle(
-            color = Color(project.color.toInt()),
-            size = 24.dp
-        )
+        Column(modifier = Modifier.alpha(contentAlpha)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ProjectColorCircle(
+                    color = Color(project.color.toInt()),
+                    size = 24.dp
+                )
 
-        Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
-        Text(
-            text = project.name,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.weight(1f)
-        )
+                Text(
+                    text = project.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
 
         Checkbox(
             checked = isCheckedIn,

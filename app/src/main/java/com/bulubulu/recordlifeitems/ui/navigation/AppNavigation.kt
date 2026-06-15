@@ -20,6 +20,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.bulubulu.recordlifeitems.ui.checkin.CheckInScreen
 import com.bulubulu.recordlifeitems.ui.home.HomeScreen
+import com.bulubulu.recordlifeitems.ui.projects.ProjectEditScreen
 import com.bulubulu.recordlifeitems.ui.projects.ProjectsScreen
 
 @Composable
@@ -70,9 +71,7 @@ fun AppNavigation() {
                     navArgument("projectId") { type = NavType.LongType }
                 )
             ) {
-                // Project detail - for now shows project's check-ins
-                // This could be expanded to a full screen
-                CheckInScreen(
+                ProjectEditScreen(
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

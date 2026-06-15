@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
+import com.bulubulu.recordlifeitems.util.ScheduleUtils
 
 data class CalendarDay(
     val date: LocalDate,
@@ -56,12 +57,34 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _todayCheckInMap = MutableStateFlow<Map<Long, CheckIn?>>(emptyMap())
     val todayCheckInMap: StateFlow<Map<Long, CheckIn?>> = _todayCheckInMap.asStateFlow()
 
-    // Quick check-in items combining active projects with today's status
-    val quickCheckInItems: StateFlow<List<QuickCheckInItem>> = combine(
+    // Check if a project is scheduled for today
+    private fun isScheduledForToday(project: Project): Boolean {
+        val weekDays = project.weekDays
+        // No schedule set = available every day
+        if (weekDays.isNullOrBlank()) return true
+        val todayMillis = ScheduleUtils.todayStart()
+        return ScheduleUtils.isScheduledForDate(weekDays, project.startDate, project.endDate, todayMillis)
+    }
+
+    // Projects scheduled for today (main check-in section)
+    val scheduledForToday: StateFlow<List<QuickCheckInItem>> = combine(
         projectRepository.activeProjects,
         _todayCheckInMap
     ) { projects, todayMap ->
-        projects.map { project ->
+        projects.filter { isScheduledForToday(it) }.map { project ->
+            QuickCheckInItem(
+                project = project,
+                isCheckedInToday = todayMap.containsKey(project.id)
+            )
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Projects NOT scheduled for today (separate section)
+    val notScheduledToday: StateFlow<List<QuickCheckInItem>> = combine(
+        projectRepository.activeProjects,
+        _todayCheckInMap
+    ) { projects, todayMap ->
+        projects.filter { !isScheduledForToday(it) }.map { project ->
             QuickCheckInItem(
                 project = project,
                 isCheckedInToday = todayMap.containsKey(project.id)
