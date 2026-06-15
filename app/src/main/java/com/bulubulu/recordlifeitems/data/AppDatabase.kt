@@ -10,13 +10,14 @@ import com.bulubulu.recordlifeitems.data.dao.ProjectDao
 import com.bulubulu.recordlifeitems.data.entity.CheckIn
 import com.bulubulu.recordlifeitems.data.entity.CheckInDetail
 import com.bulubulu.recordlifeitems.data.entity.Project
+import com.bulubulu.recordlifeitems.data.entity.ScheduleConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Database(
-    entities = [Project::class, CheckIn::class, CheckInDetail::class],
-    version = 1,
+    entities = [Project::class, CheckIn::class, CheckInDetail::class, ScheduleConfig::class],
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -35,6 +36,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "record_life_items_db"
                 )
+                    .fallbackToDestructiveMigration()
                     .addCallback(DatabaseCallback())
                     .build()
                 INSTANCE = instance

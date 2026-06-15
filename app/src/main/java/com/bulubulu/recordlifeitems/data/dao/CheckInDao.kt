@@ -22,11 +22,40 @@ interface CheckInDao {
     @Query("SELECT * FROM checkins WHERE projectId = :projectId AND date = :date LIMIT 1")
     fun getByProjectAndDate(projectId: Long, date: String): Flow<CheckIn?>
 
+    @Query("SELECT * FROM checkins WHERE projectId = :projectId AND date = :date LIMIT 1")
+    suspend fun getByProjectAndDateOnce(projectId: Long, date: String): CheckIn?
+
     @Query("SELECT * FROM checkins WHERE date BETWEEN :startDate AND :endDate ORDER BY date DESC, createdAt DESC")
     fun getByDateRange(startDate: String, endDate: String): Flow<List<CheckIn>>
 
     @Query("SELECT * FROM checkins WHERE projectId = :projectId ORDER BY date DESC")
     fun getByProjectId(projectId: Long): Flow<List<CheckIn>>
+
+    @Query("SELECT * FROM checkins WHERE projectId = :projectId ORDER BY date DESC")
+    suspend fun getByProjectIdOnce(projectId: Long): List<CheckIn>
+
+    // --- Schedule-related check-in queries ---
+
+    @Query("SELECT * FROM checkins WHERE projectId = :projectId AND date BETWEEN :startDate AND :endDate ORDER BY date ASC")
+    fun getByProjectAndDateRange(projectId: Long, startDate: String, endDate: String): Flow<List<CheckIn>>
+
+    @Query("SELECT COUNT(*) FROM checkins WHERE projectId = :projectId")
+    fun getTotalCheckInCount(projectId: Long): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM checkins WHERE projectId = :projectId AND date BETWEEN :startDate AND :endDate")
+    fun getCheckInCountBetweenDates(projectId: Long, startDate: String, endDate: String): Flow<Int>
+
+    @Query("SELECT * FROM checkins WHERE date = :date AND projectId IN (:projectIds) ORDER BY createdAt DESC")
+    fun getByDateForProjects(date: String, projectIds: List<Long>): Flow<List<CheckIn>>
+
+    @Query("SELECT DISTINCT date FROM checkins WHERE projectId = :projectId ORDER BY date DESC")
+    fun getCheckedInDates(projectId: Long): Flow<List<String>>
+
+    @Query("SELECT DISTINCT date FROM checkins WHERE projectId = :projectId ORDER BY date DESC")
+    suspend fun getCheckedInDatesOnce(projectId: Long): List<String>
+
+    @Query("SELECT * FROM checkins ORDER BY date DESC LIMIT :limit")
+    fun getRecentCheckIns(limit: Int): Flow<List<CheckIn>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(checkIn: CheckIn): Long

@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Event
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,6 +42,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bulubulu.recordlifeitems.ui.components.ProjectColorCircle
 import com.bulubulu.recordlifeitems.data.entity.Project
+import org.json.JSONArray
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -102,8 +107,8 @@ fun ProjectsScreen(
     if (showAddDialog) {
         AddProjectDialog(
             onDismiss = { showAddDialog = false },
-            onConfirm = { name, color, description ->
-                viewModel.addProject(name, color, description)
+            onConfirm = { name, color, description, startDate, endDate, weekdays ->
+                viewModel.addProject(name, color, description, startDate, endDate, weekdays)
                 showAddDialog = false
             }
         )
@@ -146,6 +151,31 @@ private fun ProjectCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+
+                // Show schedule info if configured
+                val scheduleText = getScheduleText(project)
+                if (scheduleText.isNotBlank()) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(top = 2.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Event,
+                            contentDescription = null,
+                            modifier = Modifier.height(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = scheduleText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
                 if (project.description.isNotBlank()) {
                     Text(
                         text = project.description,
@@ -158,4 +188,54 @@ private fun ProjectCard(
             }
         }
     }
+}
+
+private fun getScheduleText(project: Project): String {
+    val parts = mutableListOf<String>()
+
+    // Weekday info - project.weekDays is a JSON array like "[1,3,5]"
+    val weekDaysStr = project.weekDays
+    if (!weekDaysStr.isNullOrBlank() && weekDaysStr != "[]") {
+        try {
+            val jsonArray = JSONArray(weekDaysStr)
+            val days = (0 until jsonArray.length()).map { jsonArray.getInt(it) }
+            if (days.isNotEmpty()) {
+                val dayNames = days.map { day ->
+                    when (day) {
+                        1 -> "一"
+                        2 -> "二"
+                        3 -> "三"
+                        4 -> "四"
+                        5 -> "五"
+                        6 -> "六"
+                        7 -> "日"
+                        else -> ""
+                    }
+                }.filter { it.isNotBlank() }
+
+                if (dayNames.size == 7) {
+                    parts.add("每日")
+                } else if (dayNames.isNotEmpty()) {
+                    parts.add("周${dayNames.joinToString("")}")
+                }
+            }
+        } catch (e: Exception) {
+            // JSON parsing failed, skip
+        }
+    }
+
+    // Date range info - project.startDate/endDate are epoch millis
+    val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    val startMs = project.startDate
+    val endMs = project.endDate
+
+    if (startMs != null && endMs != null) {
+        parts.add("${dateFormat.format(Date(startMs))} ~ ${dateFormat.format(Date(endMs))}")
+    } else if (startMs != null) {
+        parts.add("${dateFormat.format(Date(startMs))} 起")
+    } else if (endMs != null) {
+        parts.add("至 ${dateFormat.format(Date(endMs))}")
+    }
+
+    return parts.joinToString(" · ")
 }

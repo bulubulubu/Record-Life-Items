@@ -15,8 +15,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -35,8 +33,8 @@ class CheckInViewModel(
     private val checkInRepository = CheckInRepository(database.checkInDao())
     private val projectRepository = ProjectRepository(database.projectDao())
 
-    private val projectId: Long = savedStateHandle["projectId"] ?: 0L
-    private val date: String = savedStateHandle["date"] ?: ""
+    private val projectId: Long = savedStateHandle.get<Long>("projectId") ?: 0L
+    private val date: String = savedStateHandle.get<String>("date") ?: ""
 
     val project: StateFlow<Project?> = projectRepository.getById(projectId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -54,17 +52,19 @@ class CheckInViewModel(
 
     init {
         // Load existing check-in if available
-        viewModelScope.launch {
-            val existing = checkInRepository.getByProjectAndDate(projectId, date).firstOrNull()
-            if (existing != null) {
-                _existingCheckIn.value = existing
-                _selectedDate.value = existing.date
-                _summary.value = existing.summary
+        if (projectId > 0L) {
+            viewModelScope.launch {
+                val existing = checkInRepository.getByProjectAndDate(projectId, date).firstOrNull()
+                if (existing != null) {
+                    _existingCheckIn.value = existing
+                    _selectedDate.value = existing.date
+                    _summary.value = existing.summary
 
-                val details = checkInRepository.getDetailsByCheckInId(existing.id).firstOrNull()
-                if (!details.isNullOrEmpty()) {
-                    _detailFields.value = details.map {
-                        DetailField(id = it.id, key = it.key, value = it.value)
+                    val details = checkInRepository.getDetailsByCheckInId(existing.id).firstOrNull()
+                    if (!details.isNullOrEmpty()) {
+                        _detailFields.value = details.map {
+                            DetailField(id = it.id, key = it.key, value = it.value)
+                        }
                     }
                 }
             }
@@ -81,7 +81,7 @@ class CheckInViewModel(
 
     fun updateDetailField(index: Int, key: String, value: String) {
         val currentFields = _detailFields.value.toMutableList()
-        if (index < currentFields.size) {
+        if (index in currentFields.indices) {
             currentFields[index] = currentFields[index].copy(key = key, value = value)
             _detailFields.value = currentFields
         }
@@ -95,13 +95,15 @@ class CheckInViewModel(
 
     fun removeDetailField(index: Int) {
         val currentFields = _detailFields.value.toMutableList()
-        if (currentFields.size > 1 && index < currentFields.size) {
+        if (currentFields.size > 1 && index in currentFields.indices) {
             currentFields.removeAt(index)
             _detailFields.value = currentFields
         }
     }
 
     fun saveCheckIn(onSuccess: () -> Unit) {
+        if (projectId <= 0L) return
+
         viewModelScope.launch {
             val currentSummary = _summary.value
             val currentDate = _selectedDate.value

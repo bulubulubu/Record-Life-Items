@@ -8,16 +8,21 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -31,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.bulubulu.recordlifeitems.ui.theme.ProjectColors
 
@@ -38,12 +44,15 @@ import com.bulubulu.recordlifeitems.ui.theme.ProjectColors
 @Composable
 fun AddProjectDialog(
     onDismiss: () -> Unit,
-    onConfirm: (name: String, color: Long, description: String) -> Unit
+    onConfirm: (name: String, color: Long, description: String, startDate: String, endDate: String, weekdays: String) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var selectedColor by remember { mutableStateOf(ProjectColors.first()) }
     var nameError by remember { mutableStateOf(false) }
+    var startDate by remember { mutableStateOf("") }
+    var endDate by remember { mutableStateOf("") }
+    var selectedWeekdays by remember { mutableStateOf(setOf<Int>()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -55,7 +64,9 @@ fun AddProjectDialog(
         },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
             ) {
                 // Project name input
                 OutlinedTextField(
@@ -107,6 +118,74 @@ fun AddProjectDialog(
                     modifier = Modifier.fillMaxWidth(),
                     maxLines = 2
                 )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Schedule section
+                Text(
+                    text = "打卡计划（可选）",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Start date
+                OutlinedTextField(
+                    value = startDate,
+                    onValueChange = { startDate = it },
+                    label = { Text("开始日期 (yyyy-MM-dd)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // End date
+                OutlinedTextField(
+                    value = endDate,
+                    onValueChange = { endDate = it },
+                    label = { Text("结束日期 (yyyy-MM-dd)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Weekday selector
+                Text(
+                    text = "选择星期",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    val weekdays = listOf("一", "二", "三", "四", "五", "六", "日")
+                    weekdays.forEachIndexed { index, label ->
+                        val dayValue = index + 1 // 1=Mon..7=Sun
+                        val isSelected = dayValue in selectedWeekdays
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = {
+                                selectedWeekdays = if (isSelected) {
+                                    selectedWeekdays - dayValue
+                                } else {
+                                    selectedWeekdays + dayValue
+                                }
+                            },
+                            label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                            )
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
@@ -115,7 +194,14 @@ fun AddProjectDialog(
                     if (name.isBlank()) {
                         nameError = true
                     } else {
-                        onConfirm(name, selectedColor.value.toLong(), description)
+                        onConfirm(
+                            name,
+                            selectedColor.value.toLong(),
+                            description,
+                            startDate,
+                            endDate,
+                            selectedWeekdays.sorted().joinToString(",")
+                        )
                     }
                 }
             ) {

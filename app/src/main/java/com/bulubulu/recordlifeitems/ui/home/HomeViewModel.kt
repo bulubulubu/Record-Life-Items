@@ -13,8 +13,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
 
@@ -28,6 +29,11 @@ data class CalendarDay(
 data class CheckInWithProject(
     val checkIn: CheckIn,
     val project: Project
+)
+
+data class QuickCheckInItem(
+    val project: Project,
+    val isCheckedInToday: Boolean
 )
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
@@ -45,6 +51,23 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     // All projects for mapping colors
     val allProjects: StateFlow<List<Project>> = projectRepository.allProjects
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Today's check-ins as a simple map (projectId -> checkIn)
+    private val _todayCheckInMap = MutableStateFlow<Map<Long, CheckIn?>>(emptyMap())
+    val todayCheckInMap: StateFlow<Map<Long, CheckIn?>> = _todayCheckInMap.asStateFlow()
+
+    // Quick check-in items combining active projects with today's status
+    val quickCheckInItems: StateFlow<List<QuickCheckInItem>> = combine(
+        projectRepository.activeProjects,
+        _todayCheckInMap
+    ) { projects, todayMap ->
+        projects.map { project ->
+            QuickCheckInItem(
+                project = project,
+                isCheckedInToday = todayMap.containsKey(project.id)
+            )
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Calendar days with check-in indicators
     val calendarDays: StateFlow<List<CalendarDay>> = combine(
@@ -96,6 +119,49 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
         days
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    init {
+        loadTodayCheckIns()
+    }
+
+    private fun loadTodayCheckIns() {
+        viewModelScope.launch {
+            val today = LocalDate.now().toString()
+            val projects = projectRepository.activeProjects.first()
+
+            val map = mutableMapOf<Long, CheckIn?>()
+            for (project in projects) {
+                val checkIn = checkInRepository.getByProjectAndDate(project.id, today).first()
+                if (checkIn != null) {
+                    map[project.id] = checkIn
+                }
+            }
+            _todayCheckInMap.value = map
+        }
+    }
+
+    fun toggleQuickCheckIn(project: Project) {
+        viewModelScope.launch {
+            val today = LocalDate.now().toString()
+            val existingCheckIn = _todayCheckInMap.value[project.id]
+
+            if (existingCheckIn != null) {
+                // Remove check-in
+                checkInRepository.delete(existingCheckIn)
+            } else {
+                // Add quick check-in with auto-generated summary
+                val checkIn = CheckIn(
+                    projectId = project.id,
+                    date = today,
+                    summary = "已打卡",
+                    details = "[]"
+                )
+                checkInRepository.insert(checkIn)
+            }
+            // Refresh today's check-ins
+            loadTodayCheckIns()
+        }
+    }
 
     fun previousMonth() {
         _currentMonth.value = _currentMonth.value.minusMonths(1)
