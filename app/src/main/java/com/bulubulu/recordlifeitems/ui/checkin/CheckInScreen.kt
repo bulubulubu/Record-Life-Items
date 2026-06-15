@@ -105,7 +105,7 @@ fun CheckInScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         ProjectColorCircle(
-                            color = Color(proj.color.toULong()),
+                            color = Color(proj.color.toInt()),
                             size = 40.dp
                         )
                         Spacer(modifier = Modifier.width(12.dp))

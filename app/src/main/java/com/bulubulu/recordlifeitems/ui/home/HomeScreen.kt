@@ -197,7 +197,7 @@ private fun QuickCheckInRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         ProjectColorCircle(
-            color = Color(project.color.toULong()),
+            color = Color(project.color.toInt()),
             size = 24.dp
         )
 

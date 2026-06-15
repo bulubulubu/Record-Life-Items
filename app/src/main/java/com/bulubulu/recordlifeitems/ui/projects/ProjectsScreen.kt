@@ -140,7 +140,7 @@ private fun ProjectCard(
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             ProjectColorCircle(
-                color = Color(project.color.toULong()),
+                color = Color(project.color.toInt()),
                 size = 40.dp
             )
 

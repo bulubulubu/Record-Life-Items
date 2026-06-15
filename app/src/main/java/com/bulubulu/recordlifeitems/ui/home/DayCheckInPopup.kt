@@ -156,7 +156,7 @@ private fun CheckInListItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             ColorIndicator(
-                color = Color(checkInWithProject.project.color.toULong()),
+                color = Color(checkInWithProject.project.color.toInt()),
                 size = 12.dp
             )
 

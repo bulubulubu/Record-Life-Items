@@ -132,7 +132,7 @@ private fun DayCell(
 
                 uniqueColors.forEach { colorLong ->
                     ColorIndicator(
-                        color = androidx.compose.ui.graphics.Color(colorLong.toULong()),
+                        color = androidx.compose.ui.graphics.Color(colorLong.toInt()),
                         size = 5.dp,
                         modifier = Modifier.padding(horizontal = 1.dp)
                     )
