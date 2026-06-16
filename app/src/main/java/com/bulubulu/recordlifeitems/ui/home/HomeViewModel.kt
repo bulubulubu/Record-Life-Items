@@ -194,6 +194,56 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         _currentMonth.value = _currentMonth.value.plusMonths(1)
     }
 
+    fun goToMonth(month: YearMonth) {
+        _currentMonth.value = month
+    }
+
+    fun getCalendarDaysForMonth(month: YearMonth): List<CalendarDay> {
+        val today = LocalDate.now()
+        val firstDayOfMonth = month.atDay(1)
+        val lastDayOfMonth = month.atEndOfMonth()
+
+        // Get check-ins for this month
+        val checkIns = checkInRepository.getByDateRangeSync(
+            firstDayOfMonth.toString(),
+            lastDayOfMonth.toString()
+        )
+        val projectMap = allProjects.value.associateBy { it.id }
+        val checkInsByDate = checkIns.groupBy { it.date }
+
+        val startDayOfWeek = firstDayOfMonth.dayOfWeek.value
+        val paddingDays = (startDayOfWeek - 1) % 7
+        val startDate = firstDayOfMonth.minusDays(paddingDays.toLong())
+
+        val days = mutableListOf<CalendarDay>()
+        var currentDate = startDate
+
+        for (i in 0 until 42) {
+            val dayCheckIns = checkInsByDate[currentDate.toString()]?.map { checkIn ->
+                CheckInWithProject(
+                    checkIn = checkIn,
+                    project = projectMap[checkIn.projectId] ?: Project(
+                        name = "Unknown",
+                        color = 0xFF999999,
+                        description = ""
+                    )
+                )
+            } ?: emptyList()
+
+            days.add(
+                CalendarDay(
+                    date = currentDate,
+                    isCurrentMonth = currentDate.month == month.month && currentDate.year == month.year,
+                    isToday = currentDate == today,
+                    checkIns = dayCheckIns
+                )
+            )
+            currentDate = currentDate.plusDays(1)
+        }
+
+        return days
+    }
+
     fun selectDate(date: LocalDate) {
         _selectedDate.value = date
     }

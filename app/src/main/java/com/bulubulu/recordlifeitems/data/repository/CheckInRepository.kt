@@ -21,6 +21,10 @@ class CheckInRepository(private val checkInDao: CheckInDao) {
         return checkInDao.getByDateRange(startDate, endDate)
     }
 
+    suspend fun getByDateRangeSync(startDate: String, endDate: String): List<CheckIn> {
+        return checkInDao.getByDateRangeOnce(startDate, endDate)
+    }
+
     fun getByProjectId(projectId: Long): Flow<List<CheckIn>> {
         return checkInDao.getByProjectId(projectId)
     }

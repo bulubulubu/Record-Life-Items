@@ -19,6 +19,11 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
+data class ProjectField(
+    val name: String = "",
+    val type: String = "text"
+)
+
 class ProjectEditViewModel(
     application: Application,
     savedStateHandle: SavedStateHandle
@@ -49,6 +54,9 @@ class ProjectEditViewModel(
 
     private val _selectedWeekdays = MutableStateFlow<Set<Int>>(emptySet())
     val selectedWeekdays: StateFlow<Set<Int>> = _selectedWeekdays.asStateFlow()
+
+    private val _fields = MutableStateFlow<List<ProjectField>>(emptyList())
+    val fields: StateFlow<List<ProjectField>> = _fields.asStateFlow()
 
     private val _saveSuccess = MutableStateFlow(false)
     val saveSuccess: StateFlow<Boolean> = _saveSuccess.asStateFlow()
@@ -108,6 +116,26 @@ class ProjectEditViewModel(
         } else {
             _selectedWeekdays.value = emptySet()
         }
+
+        // Parse fields from JSON
+        val fieldsStr = proj.fields
+        if (!fieldsStr.isNullOrBlank() && fieldsStr != "[]") {
+            try {
+                val jsonArray = org.json.JSONArray(fieldsStr)
+                val fieldList = (0 until jsonArray.length()).map { i ->
+                    val obj = jsonArray.getJSONObject(i)
+                    ProjectField(
+                        name = obj.getString("name"),
+                        type = obj.optString("type", "text")
+                    )
+                }
+                _fields.value = fieldList
+            } catch (e: Exception) {
+                _fields.value = emptyList()
+            }
+        } else {
+            _fields.value = emptyList()
+        }
     }
 
     fun updateName(name: String) {
@@ -140,6 +168,34 @@ class ProjectEditViewModel(
         _selectedWeekdays.value = current
     }
 
+    fun addField() {
+        _fields.value = _fields.value + ProjectField()
+    }
+
+    fun updateFieldName(index: Int, name: String) {
+        val current = _fields.value.toMutableList()
+        if (index in current.indices) {
+            current[index] = current[index].copy(name = name)
+            _fields.value = current
+        }
+    }
+
+    fun updateFieldType(index: Int, type: String) {
+        val current = _fields.value.toMutableList()
+        if (index in current.indices) {
+            current[index] = current[index].copy(type = type)
+            _fields.value = current
+        }
+    }
+
+    fun removeField(index: Int) {
+        val current = _fields.value.toMutableList()
+        if (index in current.indices) {
+            current.removeAt(index)
+            _fields.value = current
+        }
+    }
+
     fun saveProject(onSuccess: () -> Unit) {
         val currentProject = project.value ?: return
         if (_name.value.isBlank()) return
@@ -155,13 +211,28 @@ class ProjectEditViewModel(
                 null
             }
 
+            // Convert fields to JSON
+            val fieldsJson = if (_fields.value.isNotEmpty()) {
+                val jsonArray = org.json.JSONArray()
+                _fields.value.forEach { field ->
+                    val obj = org.json.JSONObject()
+                    obj.put("name", field.name)
+                    obj.put("type", field.type)
+                    jsonArray.put(obj)
+                }
+                jsonArray.toString()
+            } else {
+                null
+            }
+
             val updatedProject = currentProject.copy(
                 name = _name.value,
                 description = _description.value,
                 color = _selectedColor.value,
                 weekDays = weekDaysJson,
                 startDate = startMillis,
-                endDate = endMillis
+                endDate = endMillis,
+                fields = fieldsJson
             )
 
             projectRepository.update(updatedProject)

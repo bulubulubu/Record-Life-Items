@@ -28,6 +28,9 @@ interface CheckInDao {
     @Query("SELECT * FROM checkins WHERE date BETWEEN :startDate AND :endDate ORDER BY date DESC, createdAt DESC")
     fun getByDateRange(startDate: String, endDate: String): Flow<List<CheckIn>>
 
+    @Query("SELECT * FROM checkins WHERE date BETWEEN :startDate AND :endDate ORDER BY date DESC, createdAt DESC")
+    suspend fun getByDateRangeOnce(startDate: String, endDate: String): List<CheckIn>
+
     @Query("SELECT * FROM checkins WHERE projectId = :projectId ORDER BY date DESC")
     fun getByProjectId(projectId: Long): Flow<List<CheckIn>>
 
