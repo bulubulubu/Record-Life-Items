@@ -34,6 +34,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.bulubulu.recordlifeitems.ui.components.ColorIndicator
+import com.bulubulu.recordlifeitems.data.entity.Project
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,8 +46,9 @@ import java.time.LocalDate
 fun DayCheckInPopup(
     date: LocalDate,
     checkIns: List<CheckInWithProject>,
+    projects: List<Project>,
     onCheckInClick: (CheckInWithProject) -> Unit,
-    onAddCheckIn: () -> Unit,
+    onAddCheckIn: (Long) -> Unit,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState()
@@ -73,26 +79,46 @@ fun DayCheckInPopup(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            if (checkIns.isEmpty()) {
-                // Empty state
+            var showProjectSelector by remember { mutableStateOf(false) }
+
+            if (showProjectSelector) {
+                // Project selector
+                Text(
+                    text = "选择打卡项目",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().height(200.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(projects) { project ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth().clickable { onAddCheckIn(project.id) },
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                ColorIndicator(color = Color(project.color.toInt()), size = 12.dp)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(text = project.name, style = MaterialTheme.typography.bodyLarge)
+                            }
+                        }
+                    }
+                }
+            } else if (checkIns.isEmpty()) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 32.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = "暂无打卡记录",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Text(text = "暂无打卡记录", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(16.dp))
-                    FilledTonalButton(onClick = onAddCheckIn) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
+                    FilledTonalButton(onClick = { showProjectSelector = true }) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("添加打卡")
                     }
@@ -115,14 +141,10 @@ fun DayCheckInPopup(
                     item {
                         Spacer(modifier = Modifier.height(8.dp))
                         FilledTonalButton(
-                            onClick = onAddCheckIn,
+                            onClick = { showProjectSelector = true },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("添加打卡")
                         }

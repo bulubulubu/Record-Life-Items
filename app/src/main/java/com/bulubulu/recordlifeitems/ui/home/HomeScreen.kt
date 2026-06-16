@@ -241,6 +241,7 @@ fun HomeScreen(
             DayCheckInPopup(
                 date = currentDate,
                 checkIns = dayCheckIns,
+                projects = allProjects,
                 onCheckInClick = { checkInWithProject ->
                     showDayPopup = false
                     onNavigateToCheckInDetail(
@@ -248,15 +249,9 @@ fun HomeScreen(
                         checkInWithProject.checkIn.date
                     )
                 },
-                onAddCheckIn = {
+                onAddCheckIn = { projectId ->
                     showDayPopup = false
-                    val dateToSend = selectedDate
-                    if (allProjects.isNotEmpty() && dateToSend != null) {
-                        onNavigateToCheckInDetail(
-                            allProjects.first().id,
-                            dateToSend.toString()
-                        )
-                    }
+                    onNavigateToCheckInDetail(projectId, currentDate.toString())
                 },
                 onDismiss = {
                     showDayPopup = false

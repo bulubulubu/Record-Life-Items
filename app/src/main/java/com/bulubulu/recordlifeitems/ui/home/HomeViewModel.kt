@@ -47,7 +47,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedDate = MutableStateFlow<LocalDate?>(null)
     val selectedDate: StateFlow<LocalDate?> = _selectedDate.asStateFlow()
     val allProjects: StateFlow<List<Project>> = projectRepository.allProjects
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     private val _todayCheckInMap = MutableStateFlow<Map<Long, CheckIn?>>(emptyMap())
     private val _checkInsByDate = MutableStateFlow<Map<String, List<CheckIn>>>(emptyMap())
 
