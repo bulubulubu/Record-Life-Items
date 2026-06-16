@@ -44,6 +44,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val projectRepository = ProjectRepository(database.projectDao())
 
     private val _currentMonth = MutableStateFlow(YearMonth.now())
+
+    private val _currentMonthDays = MutableStateFlow<List<CalendarDay>>(emptyList())
+    val currentMonthDays: StateFlow<List<CalendarDay>> = _currentMonthDays.asStateFlow()
     val currentMonth: StateFlow<YearMonth> = _currentMonth.asStateFlow()
 
     private val _selectedDate = MutableStateFlow<LocalDate?>(null)
@@ -145,6 +148,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         loadTodayCheckIns()
+        viewModelScope.launch {
+            _currentMonthDays.value = getCalendarDaysForMonth(_currentMonth.value)
+        }
     }
 
     private fun loadTodayCheckIns() {
@@ -196,9 +202,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun goToMonth(month: YearMonth) {
         _currentMonth.value = month
+        viewModelScope.launch {
+            _currentMonthDays.value = getCalendarDaysForMonth(month)
+        }
     }
 
-    fun getCalendarDaysForMonth(month: YearMonth): List<CalendarDay> {
+    suspend fun getCalendarDaysForMonth(month: YearMonth): List<CalendarDay> {
         val today = LocalDate.now()
         val firstDayOfMonth = month.atDay(1)
         val lastDayOfMonth = month.atEndOfMonth()

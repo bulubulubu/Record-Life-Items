@@ -56,7 +56,7 @@ import java.time.YearMonth
 import androidx.compose.material3.HorizontalDivider
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     onNavigateToCheckInDetail: (Long, String) -> Unit,
@@ -67,6 +67,7 @@ fun HomeScreen(
     val allProjects by viewModel.allProjects.collectAsState()
     val scheduledForToday by viewModel.scheduledForToday.collectAsState()
     val notScheduledToday by viewModel.notScheduledToday.collectAsState()
+    val currentMonthDays by viewModel.currentMonthDays.collectAsState()
 
     var showDayPopup by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
@@ -140,9 +141,8 @@ fun HomeScreen(
                         .height(320.dp),
                     verticalAlignment = Alignment.Top
                 ) { page ->
-                    val month = YearMonth.now().plusMonths((page - initialPage).toLong())
                     CalendarView(
-                        days = viewModel.getCalendarDaysForMonth(month),
+                        days = currentMonthDays,
                         onDayClick = { date ->
                             viewModel.selectDate(date)
                             showDayPopup = true
@@ -233,9 +233,8 @@ fun HomeScreen(
         // Day check-in popup
         val currentDate = selectedDate
         if (showDayPopup && currentDate != null) {
-            val dayCheckIns = viewModel.getCalendarDaysForMonth(
-                YearMonth.from(currentDate)
-            ).find { it.date == currentDate }?.checkIns ?: emptyList()
+            val dayCheckIns = currentMonthDays
+                .find { it.date == currentDate }?.checkIns ?: emptyList()
 
             DayCheckInPopup(
                 date = currentDate,
