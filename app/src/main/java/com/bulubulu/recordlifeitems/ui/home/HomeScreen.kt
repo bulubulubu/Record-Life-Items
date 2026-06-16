@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -56,7 +57,7 @@ import java.time.YearMonth
 import androidx.compose.material3.HorizontalDivider
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     onNavigateToCheckInDetail: (Long, String) -> Unit,
@@ -67,7 +68,6 @@ fun HomeScreen(
     val allProjects by viewModel.allProjects.collectAsState()
     val scheduledForToday by viewModel.scheduledForToday.collectAsState()
     val notScheduledToday by viewModel.notScheduledToday.collectAsState()
-    val currentMonthDays by viewModel.currentMonthDays.collectAsState()
 
     var showDayPopup by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
@@ -141,17 +141,9 @@ fun HomeScreen(
                         .height(320.dp),
                     verticalAlignment = Alignment.Top
                 ) { page ->
-                    val pageMonth = YearMonth.now().plusMonths((page - initialPage).toLong())
-                    val isCurrentPage = page == pagerState.currentPage
-                    
-                    LaunchedEffect(pageMonth) {
-                        viewModel.loadMonthDays(pageMonth)
-                    }
-                    
-                    val pageDays = if (isCurrentPage) currentMonthDays else emptyList()
-                    
+                    val month = YearMonth.now().plusMonths((page - initialPage).toLong())
                     CalendarView(
-                        days = pageDays,
+                        days = viewModel.getCalendarDaysForMonth(month),
                         onDayClick = { date ->
                             viewModel.selectDate(date)
                             showDayPopup = true
@@ -242,9 +234,9 @@ fun HomeScreen(
         // Day check-in popup
         val currentDate = selectedDate
         if (showDayPopup && currentDate != null) {
-            val dayCheckIns = currentMonthDays.find { it.date == currentDate }?.checkIns
-                ?: viewModel.getMonthDaysForDate(currentDate).find { it.date == currentDate }?.checkIns
-                ?: emptyList()
+            val dayCheckIns = viewModel.getCalendarDaysForMonth(
+                YearMonth.from(currentDate)
+            ).find { it.date == currentDate }?.checkIns ?: emptyList()
 
             DayCheckInPopup(
                 date = currentDate,
