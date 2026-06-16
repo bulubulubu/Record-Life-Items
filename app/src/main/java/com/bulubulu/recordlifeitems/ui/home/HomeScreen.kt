@@ -141,8 +141,17 @@ fun HomeScreen(
                         .height(320.dp),
                     verticalAlignment = Alignment.Top
                 ) { page ->
+                    val pageMonth = YearMonth.now().plusMonths((page - initialPage).toLong())
+                    val isCurrentPage = page == pagerState.currentPage
+                    
+                    LaunchedEffect(pageMonth) {
+                        viewModel.loadMonthDays(pageMonth)
+                    }
+                    
+                    val pageDays = if (isCurrentPage) currentMonthDays else emptyList()
+                    
                     CalendarView(
-                        days = currentMonthDays,
+                        days = pageDays,
                         onDayClick = { date ->
                             viewModel.selectDate(date)
                             showDayPopup = true
@@ -233,8 +242,9 @@ fun HomeScreen(
         // Day check-in popup
         val currentDate = selectedDate
         if (showDayPopup && currentDate != null) {
-            val dayCheckIns = currentMonthDays
-                .find { it.date == currentDate }?.checkIns ?: emptyList()
+            val dayCheckIns = currentMonthDays.find { it.date == currentDate }?.checkIns
+                ?: viewModel.getMonthDaysForDate(currentDate).find { it.date == currentDate }?.checkIns
+                ?: emptyList()
 
             DayCheckInPopup(
                 date = currentDate,

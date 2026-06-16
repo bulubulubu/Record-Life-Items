@@ -49,6 +49,9 @@ fun AppNavigation() {
                 ProjectsScreen(
                     onNavigateToProjectDetail = { projectId ->
                         navController.navigate(Screen.ProjectDetail.createRoute(projectId))
+                    },
+                    onNavigateToNewProject = {
+                        navController.navigate(Screen.ProjectDetail.createRoute(0L))
                     }
                 )
             }

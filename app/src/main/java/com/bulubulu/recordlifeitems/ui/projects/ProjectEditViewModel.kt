@@ -61,11 +61,22 @@ class ProjectEditViewModel(
     private val _saveSuccess = MutableStateFlow(false)
     val saveSuccess: StateFlow<Boolean> = _saveSuccess.asStateFlow()
 
+    private val _isNewProject = MutableStateFlow(projectId == 0L)
+    val isNewProject: StateFlow<Boolean> = _isNewProject.asStateFlow()
+
     init {
-        // Load the project and populate editable fields
-        viewModelScope.launch {
-            val proj = project.value ?: project.firstOrNull()
-            proj?.let { loadProjectFields(it) }
+        if (projectId == 0L) {
+            // New project - set defaults
+            _name.value = ""
+            _description.value = ""
+            _selectedColor.value = 0xFF4CAF50
+            _fields.value = emptyList()
+        } else {
+            // Load existing project
+            viewModelScope.launch {
+                val proj = project.value ?: project.firstOrNull()
+                proj?.let { loadProjectFields(it) }
+            }
         }
 
         // Also react to project flow updates
@@ -197,8 +208,12 @@ class ProjectEditViewModel(
     }
 
     fun saveProject(onSuccess: () -> Unit) {
-        val currentProject = project.value ?: return
         if (_name.value.isBlank()) return
+        if (_isNewProject.value) {
+            createNewProject(onSuccess)
+            return
+        }
+        val currentProject = project.value ?: return
 
         viewModelScope.launch {
             val startMillis = parseDateToMillis(_startDate.value)
@@ -236,6 +251,39 @@ class ProjectEditViewModel(
             )
 
             projectRepository.update(updatedProject)
+            _saveSuccess.value = true
+            onSuccess()
+        }
+    }
+
+    private fun createNewProject(onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            val startMillis = parseDateToMillis(_startDate.value)
+            val endMillis = parseDateToMillis(_endDate.value)
+            val weekDaysJson = if (_selectedWeekdays.value.isNotEmpty()) {
+                "[${_selectedWeekdays.value.sorted().joinToString(",")}]"
+            } else null
+            val fieldsJson = if (_fields.value.isNotEmpty()) {
+                val jsonArray = org.json.JSONArray()
+                _fields.value.forEach { field ->
+                    val obj = org.json.JSONObject()
+                    obj.put("name", field.name)
+                    obj.put("type", field.type)
+                    jsonArray.put(obj)
+                }
+                jsonArray.toString()
+            } else null
+
+            val project = Project(
+                name = _name.value,
+                description = _description.value,
+                color = _selectedColor.value,
+                weekDays = weekDaysJson,
+                startDate = startMillis,
+                endDate = endMillis,
+                fields = fieldsJson
+            )
+            projectRepository.insert(project)
             _saveSuccess.value = true
             onSuccess()
         }

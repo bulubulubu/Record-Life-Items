@@ -96,12 +96,12 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build Release APK
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleDebug --no-daemon
 
       # ── Package & Publish ──
       - name: Package APK
         run: |
-          APK_SRC="app/build/outputs/apk/release/app-release-unsigned.apk"
+          APK_SRC="app/build/outputs/apk/release/app-debug.apk"
           APK_DST="Record-Life-Items-${{ steps.ver.outputs.full_version }}.apk"
 
           if [ ! -f "$APK_SRC" ]; then

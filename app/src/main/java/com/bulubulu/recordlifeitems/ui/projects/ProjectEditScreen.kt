@@ -73,6 +73,7 @@ fun ProjectEditScreen(
     val endDate by viewModel.endDate.collectAsState()
     val selectedWeekdays by viewModel.selectedWeekdays.collectAsState()
     val fields by viewModel.fields.collectAsState()
+    val isNewProject by viewModel.isNewProject.collectAsState()
 
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showEndDatePicker by remember { mutableStateOf(false) }
@@ -82,7 +83,7 @@ fun ProjectEditScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "编辑项目",
+                        text = if (isNewProject) "新建项目" else "编辑项目",
                         style = MaterialTheme.typography.headlineSmall
                     )
                 },

@@ -51,6 +51,7 @@ import java.util.Locale
 @Composable
 fun ProjectsScreen(
     onNavigateToProjectDetail: (Long) -> Unit,
+    onNavigateToNewProject: () -> Unit,
     viewModel: ProjectsViewModel = viewModel()
 ) {
     val projects by viewModel.allProjects.collectAsState()
@@ -72,7 +73,7 @@ fun ProjectsScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { showAddDialog = true },
+                onClick = { onNavigateToNewProject() },
                 containerColor = MaterialTheme.colorScheme.primary
             ) {
                 Icon(
@@ -104,15 +105,7 @@ fun ProjectsScreen(
         }
     }
 
-    if (showAddDialog) {
-        AddProjectDialog(
-            onDismiss = { showAddDialog = false },
-            onConfirm = { name, color, description, startDate, endDate, weekdays ->
-                viewModel.addProject(name, color, description, startDate, endDate, weekdays)
-                showAddDialog = false
-            }
-        )
-    }
+
 }
 
 @Composable

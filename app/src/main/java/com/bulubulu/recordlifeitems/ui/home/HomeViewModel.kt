@@ -207,6 +207,16 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private val _monthDaysCache = java.util.concurrent.ConcurrentHashMap<YearMonth, List<CalendarDay>>()
+    
+    fun loadMonthDays(month: YearMonth) {
+        if (_monthDaysCache.containsKey(month)) return
+        viewModelScope.launch {
+            val days = getCalendarDaysForMonth(month)
+            _monthDaysCache[month] = days
+        }
+    }
+
     suspend fun getCalendarDaysForMonth(month: YearMonth): List<CalendarDay> {
         val today = LocalDate.now()
         val firstDayOfMonth = month.atDay(1)
@@ -255,6 +265,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun selectDate(date: LocalDate) {
         _selectedDate.value = date
+    }
+
+    fun getMonthDaysForDate(date: LocalDate): List<CalendarDay> {
+        val month = YearMonth.from(date)
+        return _monthDaysCache[month] ?: emptyList()
     }
 
     fun clearSelectedDate() {
