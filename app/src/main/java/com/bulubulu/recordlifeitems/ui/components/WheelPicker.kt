@@ -21,6 +21,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,6 +35,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import java.time.LocalDate
 
 @Composable
@@ -178,12 +180,28 @@ private fun WheelSelector(
     label: String,
     modifier: Modifier = Modifier
 ) {
+    val itemHeight = 40.dp
     val initialIndex = items.indexOf(selectedItem).coerceAtLeast(0)
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
-    val itemHeight = 40.dp
 
+    // Calculate centered item based on scroll offset
+    val centeredItemIndex by remember {
+        derivedStateOf {
+            val firstVisible = listState.firstVisibleItemIndex
+            val offset = listState.firstVisibleItemScrollOffset
+            val itemHeightPx = listState.layoutInfo.visibleItemsInfo.firstOrNull()?.size ?: 1
+            if (offset > itemHeightPx / 2) {
+                (firstVisible + 1).coerceIn(0, items.size - 1)
+            } else {
+                firstVisible.coerceIn(0, items.size - 1)
+            }
+        }
+    }
+
+    // Update selection when scroll settles (skip initial)
     LaunchedEffect(listState) {
-        snapshotFlow { listState.firstVisibleItemIndex }
+        snapshotFlow { centeredItemIndex }
+            .drop(1)
             .distinctUntilChanged()
             .collect { index ->
                 if (index in items.indices) {

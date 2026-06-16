@@ -143,6 +143,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun refreshCheckInData() {
+        loadWideRangeCheckIns()
+    }
+
     fun goToMonth(month: YearMonth) { _currentMonth.value = month }
     fun selectDate(date: LocalDate) { _selectedDate.value = date }
     fun clearSelectedDate() { _selectedDate.value = null }

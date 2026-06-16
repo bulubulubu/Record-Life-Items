@@ -75,11 +75,14 @@ fun AppNavigation() {
                     navArgument("projectId") { type = NavType.LongType }
                 )
             ) {
+                val projectId = it.arguments?.getLong("projectId") ?: 0L
                 ProjectHistoryScreen(
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToEdit = {
-                        val projectId = it.arguments?.getLong("projectId") ?: 0L
                         navController.navigate(Screen.ProjectDetail.createRoute(projectId))
+                    },
+                    onAddCheckIn = {
+                        navController.navigate(Screen.CheckInDetail.createRoute(projectId, java.time.LocalDate.now().toString()))
                     },
                     onCheckInClick = { checkInId, date ->
                         navController.navigate(Screen.CheckInDetail.createRoute(checkInId, date))

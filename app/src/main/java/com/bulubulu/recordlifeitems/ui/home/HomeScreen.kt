@@ -80,6 +80,11 @@ fun HomeScreen(
     )
 
     // Sync pager position with ViewModel
+    // Refresh check-in data every time the screen is displayed
+    LaunchedEffect(Unit) {
+        viewModel.refreshCheckInData()
+    }
+
     LaunchedEffect(pagerState.currentPage) {
         val targetMonth = YearMonth.now().plusMonths((pagerState.currentPage - initialPage).toLong())
         if (targetMonth != currentMonth) {

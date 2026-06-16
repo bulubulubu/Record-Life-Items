@@ -95,13 +95,13 @@ jobs:
       - name: Make Gradlew executable
         run: chmod +x gradlew
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon
+      - name: Build Release APK
+        run: ./gradlew assembleRelease --no-daemon
 
       # ── Package & Publish ──
       - name: Package APK
         run: |
-          APK_SRC="app/build/outputs/apk/debug/app-debug.apk"
+          APK_SRC="app/build/outputs/apk/release/app-release.apk"
           APK_DST="Record-Life-Items-${{ steps.ver.outputs.full_version }}.apk"
 
           if [ ! -f "$APK_SRC" ]; then

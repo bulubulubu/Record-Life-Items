@@ -16,9 +16,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -45,6 +47,7 @@ import java.util.Locale
 fun ProjectHistoryScreen(
     onNavigateBack: () -> Unit,
     onNavigateToEdit: () -> Unit,
+    onAddCheckIn: () -> Unit,
     onCheckInClick: (Long, String) -> Unit,
     viewModel: ProjectHistoryViewModel = viewModel()
 ) {
@@ -52,6 +55,18 @@ fun ProjectHistoryScreen(
     val checkIns by viewModel.checkIns.collectAsState()
 
     Scaffold(
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onAddCheckIn,
+                containerColor = MaterialTheme.colorScheme.primary
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "添加打卡",
+                    tint = MaterialTheme.colorScheme.onPrimary
+                )
+            }
+        },
         topBar = {
             TopAppBar(
                 title = {
