@@ -92,6 +92,9 @@ jobs:
           grep -E 'versionCode|versionName' app/build.gradle.kts
 
       # ── Build ──
+      - name: Make Gradlew executable
+        run: chmod +x gradlew
+
       - name: Build Release APK
         run: ./gradlew assembleRelease --no-daemon
 
