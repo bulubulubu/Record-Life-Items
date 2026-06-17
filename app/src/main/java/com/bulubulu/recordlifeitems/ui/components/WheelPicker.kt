@@ -185,6 +185,7 @@ private fun WheelSelector(
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
 
     // Snap to nearest item when scrolling stops
+    val paddingCount = 3
     LaunchedEffect(listState) {
         snapshotFlow { listState.isScrollInProgress }
             .filter { !it }
@@ -193,15 +194,16 @@ private fun WheelSelector(
                 val offset = listState.firstVisibleItemScrollOffset
                 val hPx = listState.layoutInfo.visibleItemsInfo
                     .firstOrNull { it.index == first }?.size ?: return@collect
+                // target is the LazyColumn index to snap to
                 val target = if (offset > hPx / 2) {
-                    (first + 1).coerceAtMost(items.size - 1)
+                    (first + 1)
                 } else {
-                    first.coerceAtLeast(0)
+                    first
                 }
                 listState.animateScrollToItem(target)
-                if (target in items.indices) {
-                    onItemSelected(items[target])
-                }
+                // Convert LazyColumn index to items list index (subtract padding)
+                val itemIndex = (target - paddingCount).coerceIn(0, items.size - 1)
+                onItemSelected(items[itemIndex])
             }
     }
 
