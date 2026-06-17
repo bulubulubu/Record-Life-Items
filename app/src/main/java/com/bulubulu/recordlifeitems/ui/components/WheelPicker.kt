@@ -34,7 +34,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import java.time.LocalDate
+
+private const val PAD = 3
 
 @Composable
 fun WheelDatePicker(
@@ -183,12 +186,17 @@ private fun WheelSelector(
     val itemHeight = 40.dp
 
     LaunchedEffect(listState) {
-        snapshotFlow { listState.firstVisibleItemIndex }
-            .distinctUntilChanged()
-            .collect { index ->
-                if (index in items.indices) {
-                    onItemSelected(items[index])
-                }
+        snapshotFlow { listState.isScrollInProgress }
+            .filter { !it }
+            .collect {
+                val first = listState.firstVisibleItemIndex
+                val offset = listState.firstVisibleItemScrollOffset
+                val hPx = listState.layoutInfo.visibleItemsInfo
+                    .firstOrNull { it.index == first }?.size ?: return@collect
+                val i = if (offset * 2 >= hPx) 2 else 1
+                val centeredIdx = first + i
+                val itemIdx = (centeredIdx - PAD).coerceIn(0, items.size - 1)
+                onItemSelected(items[itemIdx])
             }
     }
 
