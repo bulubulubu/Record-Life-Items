@@ -48,7 +48,7 @@ fun AddProjectDialog(
 ) {
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    var selectedColor by remember { mutableStateOf(ProjectColors.first()) }
+    var selectedColor by remember { mutableStateOf(ProjectColors.first().value.toLong()) }
     var nameError by remember { mutableStateOf(false) }
     var startDate by remember { mutableStateOf("") }
     var endDate by remember { mutableStateOf("") }
@@ -102,8 +102,8 @@ fun AddProjectDialog(
                     ProjectColors.forEach { color ->
                         ColorOption(
                             color = color,
-                            isSelected = color == selectedColor,
-                            onClick = { selectedColor = color }
+                            isSelected = color.value.toLong() == selectedColor,
+                            onClick = { selectedColor = color.value.toLong() }
                         )
                     }
                 }
@@ -196,7 +196,7 @@ fun AddProjectDialog(
                     } else {
                         onConfirm(
                             name,
-                            selectedColor.value.toLong(),
+                            selectedColor,
                             description,
                             startDate,
                             endDate,

@@ -21,9 +21,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -34,8 +34,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
 import java.time.LocalDate
 
 @Composable
@@ -44,11 +43,12 @@ fun WheelDatePicker(
     onDateSelected: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val today = LocalDate.now()
     val parts = try {
         initialDate.split("-").map { it.toInt() }
     } catch (e: Exception) {
-        val now = LocalDate.now()
-        listOf(now.year, now.monthValue, now.dayOfMonth)
+        val today = LocalDate.now()
+        listOf(today.year, today.monthValue, today.dayOfMonth)
     }
 
     var year by remember { mutableStateOf(parts.getOrNull(0) ?: LocalDate.now().year) }
@@ -184,28 +184,23 @@ private fun WheelSelector(
     val initialIndex = items.indexOf(selectedItem).coerceAtLeast(0)
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
 
-    // Calculate centered item based on scroll offset
-    val centeredItemIndex by remember {
-        derivedStateOf {
-            val firstVisible = listState.firstVisibleItemIndex
-            val offset = listState.firstVisibleItemScrollOffset
-            val itemHeightPx = listState.layoutInfo.visibleItemsInfo.firstOrNull()?.size ?: 1
-            if (offset > itemHeightPx / 2) {
-                (firstVisible + 1).coerceIn(0, items.size - 1)
-            } else {
-                firstVisible.coerceIn(0, items.size - 1)
-            }
-        }
-    }
-
-    // Update selection when scroll settles (skip initial)
+    // Snap to nearest item when scrolling stops
     LaunchedEffect(listState) {
-        snapshotFlow { centeredItemIndex }
-            .drop(1)
-            .distinctUntilChanged()
-            .collect { index ->
-                if (index in items.indices) {
-                    onItemSelected(items[index])
+        snapshotFlow { listState.isScrollInProgress }
+            .filter { !it }
+            .collect {
+                val first = listState.firstVisibleItemIndex
+                val offset = listState.firstVisibleItemScrollOffset
+                val hPx = listState.layoutInfo.visibleItemsInfo
+                    .firstOrNull { it.index == first }?.size ?: return@collect
+                val target = if (offset > hPx / 2) {
+                    (first + 1).coerceAtMost(items.size - 1)
+                } else {
+                    first.coerceAtLeast(0)
+                }
+                listState.animateScrollToItem(target)
+                if (target in items.indices) {
+                    onItemSelected(items[target])
                 }
             }
     }

@@ -89,13 +89,23 @@ object ScheduleUtils {
      * Check if a project is scheduled for a given epoch millis date,
      * based on the simple weekDays field on the Project entity.
      */
+    /**
+     * Convert UI weekday (1=Mon..7=Sun) to Java Calendar.DAY_OF_WEEK (1=Sun,2=Mon..7=Sat).
+     */
+    private fun uiDayToJavaDay(uiDay: Int): Int {
+        return when (uiDay) {
+            7 -> 1  // Sun -> Calendar.SUNDAY
+            else -> uiDay + 1  // Mon(1)->2, Tue(2)->3, ..., Sat(6)->7
+        }
+    }
+
     fun isScheduledForDate(
         weekDays: String?,
         startDate: Long?,
         endDate: Long?,
         targetDate: Long
     ): Boolean {
-        val selectedDays = parseWeekDays(weekDays)
+        val selectedDays = parseWeekDays(weekDays).map { uiDayToJavaDay(it) }.toSet()
         if (selectedDays.isEmpty()) return false
 
         // Check date range
