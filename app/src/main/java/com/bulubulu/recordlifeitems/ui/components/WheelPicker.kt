@@ -23,7 +23,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -34,7 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.distinctUntilChanged
 import java.time.LocalDate
 
 @Composable
@@ -43,12 +42,11 @@ fun WheelDatePicker(
     onDateSelected: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val today = LocalDate.now()
     val parts = try {
         initialDate.split("-").map { it.toInt() }
     } catch (e: Exception) {
-        val today = LocalDate.now()
-        listOf(today.year, today.monthValue, today.dayOfMonth)
+        val now = LocalDate.now()
+        listOf(now.year, now.monthValue, now.dayOfMonth)
     }
 
     var year by remember { mutableStateOf(parts.getOrNull(0) ?: LocalDate.now().year) }
@@ -180,30 +178,17 @@ private fun WheelSelector(
     label: String,
     modifier: Modifier = Modifier
 ) {
-    val itemHeight = 40.dp
     val initialIndex = items.indexOf(selectedItem).coerceAtLeast(0)
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
+    val itemHeight = 40.dp
 
-    // Snap to nearest item when scrolling stops
-    val paddingCount = 3
     LaunchedEffect(listState) {
-        snapshotFlow { listState.isScrollInProgress }
-            .filter { !it }
-            .collect {
-                val first = listState.firstVisibleItemIndex
-                val offset = listState.firstVisibleItemScrollOffset
-                val hPx = listState.layoutInfo.visibleItemsInfo
-                    .firstOrNull { it.index == first }?.size ?: return@collect
-                // target is the LazyColumn index to snap to
-                val target = if (offset > hPx / 2) {
-                    (first + 1)
-                } else {
-                    first
+        snapshotFlow { listState.firstVisibleItemIndex }
+            .distinctUntilChanged()
+            .collect { index ->
+                if (index in items.indices) {
+                    onItemSelected(items[index])
                 }
-                listState.animateScrollToItem(target)
-                // Convert LazyColumn index to items list index (subtract padding)
-                val itemIndex = (target - paddingCount).coerceIn(0, items.size - 1)
-                onItemSelected(items[itemIndex])
             }
     }
 
