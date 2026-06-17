@@ -56,7 +56,7 @@ jobs:
           if [ -z "$HIGHEST" ]; then
             NEXT=1
           else
-            NEXT=$((HIGHEST + 1))
+            NEXT=$((10#$HIGHEST + 1))
           fi
 
           COUNTER=$(printf "%03d" $NEXT)
