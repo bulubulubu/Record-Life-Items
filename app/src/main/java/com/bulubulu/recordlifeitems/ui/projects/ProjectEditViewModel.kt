@@ -69,7 +69,7 @@ class ProjectEditViewModel(
             // New project - set defaults
             _name.value = ""
             _description.value = ""
-            _selectedColor.value = 0xFF4CAF50.toLong()
+            _selectedColor.value = androidx.compose.ui.graphics.Color(0xFF4CAF50).value.toLong()
             _fields.value = emptyList()
         } else {
             // Load existing project
