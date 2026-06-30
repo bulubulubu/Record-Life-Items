@@ -1,33 +1,42 @@
 package com.bulubulu.recordlifeitems.ui.projects
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -36,6 +45,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -52,112 +62,92 @@ import java.util.Locale
 fun ProjectsScreen(
     onNavigateToProjectDetail: (Long) -> Unit,
     onNavigateToNewProject: () -> Unit,
+    onNavigateToProfile: () -> Unit,
     viewModel: ProjectsViewModel = viewModel()
 ) {
     val projects by viewModel.allProjects.collectAsState()
-    var showAddDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        text = "项目",
-                        style = MaterialTheme.typography.headlineMedium
-                    )
+                title = { Text(text = "\u9879\u76ee", style = MaterialTheme.typography.headlineMedium) },
+                actions = {
+                    IconButton(onClick = onNavigateToProfile) {
+                        Icon(imageVector = Icons.Default.Person, contentDescription = "\u4e2a\u4eba")
+                    }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { onNavigateToNewProject() },
-                containerColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "添加项目",
-                    tint = MaterialTheme.colorScheme.onPrimary
-                )
+            FloatingActionButton(onClick = { onNavigateToNewProject() }, containerColor = MaterialTheme.colorScheme.primary) {
+                Icon(imageVector = Icons.Default.Add, contentDescription = "\u6dfb\u52a0", tint = MaterialTheme.colorScheme.onPrimary)
             }
         }
     ) { paddingValues ->
         LazyColumn(
-            contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
-                top = paddingValues.calculateTopPadding() + 8.dp,
-                bottom = paddingValues.calculateBottomPadding() + 80.dp
-            ),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = paddingValues.calculateTopPadding() + 8.dp, bottom = paddingValues.calculateBottomPadding() + 80.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            items(projects) { project ->
-                ProjectListItem(
-                    project = project,
-                    onClick = { onNavigateToProjectDetail(project.id) }
-                )
+            itemsIndexed(items = projects, key = { _, p -> p.id }) { _, project ->
+                SwipeToDeleteItem(project = project, onDelete = { viewModel.softDelete(project) }, onClick = { onNavigateToProjectDetail(project.id) })
             }
         }
     }
+}
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SwipeToDeleteItem(project: Project, onDelete: () -> Unit, onClick: () -> Unit) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    val dismissState = rememberSwipeToDismissBoxState(confirmValueChange = { value ->
+        if (value == SwipeToDismissBoxValue.EndToStart) { showDeleteDialog = true; false } else false
+    })
 
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {
+            val color by animateColorAsState(targetValue = if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) Color(0xFFFF1744) else Color.Transparent, label = "bg")
+            Box(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)).background(color).padding(horizontal = 20.dp), contentAlignment = Alignment.CenterEnd) {
+                if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) {
+                    Icon(imageVector = Icons.Default.Delete, contentDescription = "\u5220\u9664", tint = Color.White, modifier = Modifier.size(28.dp))
+                }
+            }
+        },
+        enableDismissFromStartToEnd = false,
+        enableDismissFromEndToStart = true
+    ) {
+        ProjectListItem(project = project, onClick = onClick)
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("\u786e\u8ba4\u5220\u9664") },
+            text = { Text("\u786e\u5b9a\u8981\u5220\u9664\u300c${project.name}\u300d\u5417\uff1f\u5220\u9664\u540e\u53ef\u5728\u4e2a\u4eba\u9875\u9762\u627e\u56de\u3002") },
+            confirmButton = { TextButton(onClick = { onDelete(); showDeleteDialog = false }) { Text("\u5220\u9664", color = Color(0xFFFF1744)) } },
+            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("\u53d6\u6d88") } }
+        )
+    }
 }
 
 @Composable
-private fun ProjectListItem(
-    project: Project,
-    onClick: () -> Unit
-) {
+private fun ProjectListItem(project: Project, onClick: () -> Unit) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
+        modifier = Modifier.fillMaxWidth().clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            ProjectIcon(
-                iconName = project.icon,
-                color = Color(project.color.toInt()),
-                size = 36
-            )
+        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            ProjectIcon(iconName = project.icon, color = Color(project.color.toInt()), size = 36)
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = project.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                val scheduleText = getScheduleText(project)
-                if (scheduleText.isNotBlank()) {
-                    Text(
-                        text = scheduleText,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                } else if (project.description.isNotBlank()) {
-                    Text(
-                        text = project.description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                Text(text = project.name, style = MaterialTheme.typography.titleMedium, color = Color(project.color.toInt()), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val s = getScheduleText(project)
+                if (s.isNotBlank()) { Text(text = s, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                else if (project.description.isNotBlank()) { Text(text = project.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
         }
     }
@@ -165,50 +155,21 @@ private fun ProjectListItem(
 
 private fun getScheduleText(project: Project): String {
     val parts = mutableListOf<String>()
-
-    // Weekday info - project.weekDays is a JSON array like "[1,3,5]"
-    val weekDaysStr = project.weekDays
-    if (!weekDaysStr.isNullOrBlank() && weekDaysStr != "[]") {
+    val w = project.weekDays
+    if (!w.isNullOrBlank() && w != "[]") {
         try {
-            val jsonArray = JSONArray(weekDaysStr)
-            val days = (0 until jsonArray.length()).map { jsonArray.getInt(it) }
+            val arr = JSONArray(w)
+            val days = (0 until arr.length()).map { arr.getInt(it) }
             if (days.isNotEmpty()) {
-                val dayNames = days.map { day ->
-                    when (day) {
-                        1 -> "一"
-                        2 -> "二"
-                        3 -> "三"
-                        4 -> "四"
-                        5 -> "五"
-                        6 -> "六"
-                        7 -> "日"
-                        else -> ""
-                    }
-                }.filter { it.isNotBlank() }
-
-                if (dayNames.size == 7) {
-                    parts.add("每日")
-                } else if (dayNames.isNotEmpty()) {
-                    parts.add("周${dayNames.joinToString("")}")
-                }
+                val names = days.map { d -> when(d){1->"\u4e00";2->"\u4e8c";3->"\u4e09";4->"\u56db";5->"\u4e94";6->"\u516d";7->"\u65e5";else->""} }.filter{it.isNotBlank()}
+                if (names.size==7) parts.add("\u6bcf\u65e5") else if(names.isNotEmpty()) parts.add("\u5468${names.joinToString("")}")
             }
-        } catch (e: Exception) {
-            // JSON parsing failed, skip
-        }
+        } catch(e: Exception){}
     }
-
-    // Date range info - project.startDate/endDate are epoch millis
-    val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-    val startMs = project.startDate
-    val endMs = project.endDate
-
-    if (startMs != null && endMs != null) {
-        parts.add("${dateFormat.format(Date(startMs))} ~ ${dateFormat.format(Date(endMs))}")
-    } else if (startMs != null) {
-        parts.add("${dateFormat.format(Date(startMs))} 起")
-    } else if (endMs != null) {
-        parts.add("至 ${dateFormat.format(Date(endMs))}")
-    }
-
-    return parts.joinToString(" · ")
+    val df = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    val s = project.startDate; val e = project.endDate
+    if (s!=null && e!=null) parts.add("${df.format(Date(s))} ~ ${df.format(Date(e))}")
+    else if (s!=null) parts.add("${df.format(Date(s))} \u8d77")
+    else if (e!=null) parts.add("\u81f3 ${df.format(Date(e))}")
+    return parts.joinToString(" \u00b7 ")
 }

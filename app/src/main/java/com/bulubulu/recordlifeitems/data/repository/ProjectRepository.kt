@@ -9,8 +9,9 @@ class ProjectRepository(private val projectDao: ProjectDao) {
 
     // --- Project operations ---
 
-    val allProjects: Flow<List<Project>> = projectDao.getAll()
+    val allProjects: Flow<List<Project>> = projectDao.getActiveProjects()
     val activeProjects: Flow<List<Project>> = projectDao.getActiveProjects()
+    val deletedProjects: Flow<List<Project>> = projectDao.getDeletedProjects()
 
     fun getById(id: Long): Flow<Project?> {
         return projectDao.getById(id)

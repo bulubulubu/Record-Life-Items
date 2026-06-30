@@ -23,6 +23,8 @@ import com.bulubulu.recordlifeitems.ui.home.HomeScreen
 import com.bulubulu.recordlifeitems.ui.projects.ProjectEditScreen
 import com.bulubulu.recordlifeitems.ui.projects.ProjectHistoryScreen
 import com.bulubulu.recordlifeitems.ui.projects.ProjectsScreen
+import com.bulubulu.recordlifeitems.ui.profile.ProfileScreen
+import com.bulubulu.recordlifeitems.ui.profile.DeletedProjectsScreen
 
 @Composable
 fun AppNavigation() {
@@ -53,6 +55,9 @@ fun AppNavigation() {
                     },
                     onNavigateToNewProject = {
                         navController.navigate(Screen.ProjectDetail.createRoute(0L))
+                    },
+                    onNavigateToProfile = {
+                        navController.navigate(Screen.Profile.route)
                     }
                 )
             }
@@ -87,6 +92,25 @@ fun AppNavigation() {
                     onCheckInClick = { checkInId, date ->
                         navController.navigate(Screen.CheckInDetail.createRoute(checkInId, date))
                     }
+                )
+            }
+
+            composable(route = Screen.Profile.route) {
+                ProfileScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToProjectDetail = { id ->
+                        if (id == -1L) {
+                            navController.navigate(Screen.DeletedProjects.route)
+                        } else {
+                            navController.navigate(Screen.ProjectDetail.createRoute(id))
+                        }
+                    }
+                )
+            }
+
+            composable(route = Screen.DeletedProjects.route) {
+                DeletedProjectsScreen(
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
 

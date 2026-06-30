@@ -22,6 +22,9 @@ interface ProjectDao {
     @Query("SELECT * FROM projects WHERE isActive = 1 ORDER BY sortOrder ASC, createdAt DESC")
     fun getActiveProjects(): Flow<List<Project>>
 
+    @Query("SELECT * FROM projects WHERE isActive = 0 ORDER BY createdAt DESC")
+    fun getDeletedProjects(): Flow<List<Project>>
+
     // --- Schedule-related queries ---
 
     @Query("SELECT * FROM projects WHERE weekDays IS NOT NULL AND weekDays != '[]' AND isActive = 1 ORDER BY sortOrder ASC")

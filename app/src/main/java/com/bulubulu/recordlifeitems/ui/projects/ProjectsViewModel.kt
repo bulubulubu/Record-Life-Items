@@ -19,6 +19,9 @@ class ProjectsViewModel(application: Application) : AndroidViewModel(application
     val allProjects: StateFlow<List<Project>> = projectRepository.allProjects
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val deletedProjects: StateFlow<List<Project>> = projectRepository.deletedProjects
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     fun addProject(
         name: String,
         color: Long,
@@ -60,6 +63,18 @@ class ProjectsViewModel(application: Application) : AndroidViewModel(application
     fun updateProject(project: Project) {
         viewModelScope.launch {
             projectRepository.update(project)
+        }
+    }
+
+    fun softDelete(project: Project) {
+        viewModelScope.launch {
+            projectRepository.update(project.copy(isActive = false))
+        }
+    }
+
+    fun restoreProject(project: Project) {
+        viewModelScope.launch {
+            projectRepository.update(project.copy(isActive = true))
         }
     }
 

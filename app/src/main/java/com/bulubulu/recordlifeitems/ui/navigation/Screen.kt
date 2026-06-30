@@ -22,6 +22,16 @@ sealed class Screen(
         icon = Icons.Default.Folder
     )
 
+    data object Profile : Screen(
+        route = "profile",
+        title = "个人"
+    )
+
+    data object DeletedProjects : Screen(
+        route = "deleted_projects",
+        title = "已删除的活动"
+    )
+
     data object CheckInDetail : Screen(
         route = "checkin_detail/{projectId}/{date}",
         title = "打卡详情"
