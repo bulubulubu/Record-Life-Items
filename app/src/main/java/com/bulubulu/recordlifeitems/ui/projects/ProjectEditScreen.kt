@@ -164,7 +164,7 @@ fun ProjectEditScreen(
                 ProjectColors.forEach { color ->
                     val colorLong = color.value.toLong()
                     // Normalize: compare as Int to handle both -1090713120L and 4283215696L
-                    val isSelected = color.value.toLong() == selectedColor
+                    val isSelected = color.value.toInt().toLong() == selectedColor
                     Box(
                         modifier = Modifier
                             .size(40.dp)
@@ -177,7 +177,7 @@ fun ProjectEditScreen(
                                     Modifier
                                 }
                             )
-                            .clickable { viewModel.updateColor(color.value.toLong()) }
+                            .clickable { viewModel.updateColor(color.value.toInt().toLong()) }
                     ) {
                         if (isSelected) {
                             Box(
