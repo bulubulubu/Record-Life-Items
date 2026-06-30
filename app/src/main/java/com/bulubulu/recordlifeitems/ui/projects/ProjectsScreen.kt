@@ -94,8 +94,9 @@ fun ProjectsScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SwipeToDeleteItem(project: Project, onDelete: () -> Unit, onClick: () -> Unit) {
+    var showDelete by remember { mutableStateOf(false) }
     val dismissState = rememberSwipeToDismissBoxState(confirmValueChange = { value ->
-        if (value == SwipeToDismissBoxValue.EndToStart) { onDelete(); true } else false
+        if (value == SwipeToDismissBoxValue.EndToStart) { showDelete = true; false } else false
     })
 
     SwipeToDismissBox(

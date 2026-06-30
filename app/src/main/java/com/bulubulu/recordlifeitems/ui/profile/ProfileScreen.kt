@@ -89,7 +89,7 @@ fun ProfileScreen(
                         Text(text = "\u5df2\u5220\u9664\u7684\u6d3b\u52a8", style = MaterialTheme.typography.titleMedium)
                         Text(text = "\u67e5\u770b\u5e76\u6062\u590d\u5df2\u5220\u9664\u7684\u9879\u76ee", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Text(text = "${'$'}{deletedProjects.size}", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                    Text(text = deletedProjects.size.toString(), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                 }
             }
 
