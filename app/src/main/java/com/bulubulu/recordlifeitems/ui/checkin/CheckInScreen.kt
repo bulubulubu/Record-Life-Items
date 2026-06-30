@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bulubulu.recordlifeitems.ui.components.ColorIndicator
 import com.bulubulu.recordlifeitems.ui.components.ProjectColorCircle
+import com.bulubulu.recordlifeitems.ui.components.WheelDatePicker
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -257,7 +258,7 @@ fun CheckInScreen(
 
     // Date picker dialog
     if (showDatePicker) {
-        DatePickerDialog(
+        WheelDatePicker(
             initialDate = selectedDate.ifBlank { LocalDate.now().toString() },
             onDateSelected = { date ->
                 viewModel.updateDate(date)
@@ -284,67 +285,3 @@ private fun Card(
     }
 }
 
-@Composable
-private fun DatePickerDialog(
-    initialDate: String,
-    onDateSelected: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    // Simple date picker using text fields for year/month/day
-    val parts = try {
-        initialDate.split("-").map { it.toInt() }
-    } catch (e: Exception) {
-        val now = LocalDate.now()
-        listOf(now.year, now.monthValue, now.dayOfMonth)
-    }
-
-    var year by remember { mutableStateOf(parts.getOrNull(0)?.toString() ?: LocalDate.now().year.toString()) }
-    var month by remember { mutableStateOf(parts.getOrNull(1)?.toString() ?: LocalDate.now().monthValue.toString()) }
-    var day by remember { mutableStateOf(parts.getOrNull(2)?.toString() ?: LocalDate.now().dayOfMonth.toString()) }
-
-    androidx.compose.material3.AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("选择日期") },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = year,
-                    onValueChange = { year = it },
-                    label = { Text("年") },
-                    singleLine = true
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = month,
-                    onValueChange = { month = it },
-                    label = { Text("月") },
-                    singleLine = true
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = day,
-                    onValueChange = { day = it },
-                    label = { Text("日") },
-                    singleLine = true
-                )
-            }
-        },
-        confirmButton = {
-            Button(onClick = {
-                val dateStr = "%04d-%02d-%02d".format(
-                    year.toIntOrNull() ?: LocalDate.now().year,
-                    month.toIntOrNull() ?: LocalDate.now().monthValue,
-                    day.toIntOrNull() ?: LocalDate.now().dayOfMonth
-                )
-                onDateSelected(dateStr)
-            }) {
-                Text("确认")
-            }
-        },
-        dismissButton = {
-            OutlinedButton(onClick = onDismiss) {
-                Text("取消")
-            }
-        }
-    )
-}

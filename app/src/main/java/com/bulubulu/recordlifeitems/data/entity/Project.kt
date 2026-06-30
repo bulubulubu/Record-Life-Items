@@ -16,5 +16,6 @@ data class Project(
     val createdAt: Long = System.currentTimeMillis(),
     val weekDays: String? = null,
     val startDate: Long? = null,
-    val endDate: Long? = null
+    val endDate: Long? = null,
+    val fields: String? = null  // JSON array of field definitions, e.g. [{"name":"学习时长","type":"text"}]
 )

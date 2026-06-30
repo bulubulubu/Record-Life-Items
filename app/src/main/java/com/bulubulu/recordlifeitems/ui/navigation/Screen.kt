@@ -36,6 +36,13 @@ sealed class Screen(
         fun createRoute(projectId: Long) = "project_detail/$projectId"
     }
 
+    data object ProjectHistory : Screen(
+        route = "project_history/{projectId}",
+        title = "打卡记录"
+    ) {
+        fun createRoute(projectId: Long) = "project_history/$projectId"
+    }
+
     companion object {
         val bottomNavItems = listOf(Home, Projects)
     }

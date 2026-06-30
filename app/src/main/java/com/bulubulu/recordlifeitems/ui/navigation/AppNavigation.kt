@@ -21,6 +21,7 @@ import androidx.navigation.navArgument
 import com.bulubulu.recordlifeitems.ui.checkin.CheckInScreen
 import com.bulubulu.recordlifeitems.ui.home.HomeScreen
 import com.bulubulu.recordlifeitems.ui.projects.ProjectEditScreen
+import com.bulubulu.recordlifeitems.ui.projects.ProjectHistoryScreen
 import com.bulubulu.recordlifeitems.ui.projects.ProjectsScreen
 
 @Composable
@@ -48,7 +49,10 @@ fun AppNavigation() {
             composable(Screen.Projects.route) {
                 ProjectsScreen(
                     onNavigateToProjectDetail = { projectId ->
-                        navController.navigate(Screen.ProjectDetail.createRoute(projectId))
+                        navController.navigate(Screen.ProjectHistory.createRoute(projectId))
+                    },
+                    onNavigateToNewProject = {
+                        navController.navigate(Screen.ProjectDetail.createRoute(0L))
                     }
                 )
             }
@@ -62,6 +66,27 @@ fun AppNavigation() {
             ) {
                 CheckInScreen(
                     onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(
+                route = Screen.ProjectHistory.route,
+                arguments = listOf(
+                    navArgument("projectId") { type = NavType.LongType }
+                )
+            ) {
+                val projectId = it.arguments?.getLong("projectId") ?: 0L
+                ProjectHistoryScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToEdit = {
+                        navController.navigate(Screen.ProjectDetail.createRoute(projectId))
+                    },
+                    onAddCheckIn = {
+                        navController.navigate(Screen.CheckInDetail.createRoute(projectId, java.time.LocalDate.now().toString()))
+                    },
+                    onCheckInClick = { checkInId, date ->
+                        navController.navigate(Screen.CheckInDetail.createRoute(checkInId, date))
+                    }
                 )
             }
 

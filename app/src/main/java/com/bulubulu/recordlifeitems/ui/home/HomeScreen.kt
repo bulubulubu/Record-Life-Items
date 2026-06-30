@@ -1,7 +1,10 @@
 package com.bulubulu.recordlifeitems.ui.home
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +18,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -27,11 +33,15 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Today
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,27 +49,48 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bulubulu.recordlifeitems.data.entity.Project
 import com.bulubulu.recordlifeitems.ui.components.ProjectColorCircle
 import java.time.LocalDate
+import java.time.YearMonth
 import androidx.compose.material3.HorizontalDivider
+import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     onNavigateToCheckInDetail: (Long, String) -> Unit,
     viewModel: HomeViewModel = viewModel()
 ) {
     val currentMonth by viewModel.currentMonth.collectAsState()
-    val calendarDays by viewModel.calendarDays.collectAsState()
     val selectedDate by viewModel.selectedDate.collectAsState()
     val allProjects by viewModel.allProjects.collectAsState()
     val scheduledForToday by viewModel.scheduledForToday.collectAsState()
     val notScheduledToday by viewModel.notScheduledToday.collectAsState()
 
     var showDayPopup by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
+    // Calculate initial page: 0 = 12 months ago, 24 = today, 48 = 12 months ahead
+    val initialPage = 24
+    val pagerState = rememberPagerState(
+        initialPage = initialPage,
+        pageCount = { 49 } // 49 months: -24 to +24 from current
+    )
+
+    // Sync pager position with ViewModel
+    // Refresh check-in data every time the screen is displayed
+    LaunchedEffect(Unit) {
+        viewModel.refreshCheckInData()
+    }
+
+    LaunchedEffect(pagerState.currentPage) {
+        val targetMonth = YearMonth.now().plusMonths((pagerState.currentPage - initialPage).toLong())
+        if (targetMonth != currentMonth) {
+            viewModel.goToMonth(targetMonth)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -82,38 +113,42 @@ fun HomeScreen(
                 .padding(paddingValues)
         ) {
             item {
-                // Month navigation header
+                // Month navigation header with Today button
                 MonthHeader(
                     year = currentMonth.year,
                     month = currentMonth.monthValue,
-                    onPreviousMonth = { viewModel.previousMonth() },
-                    onNextMonth = { viewModel.nextMonth() }
+                    onPreviousMonth = {
+                        coroutineScope.launch {
+                            val target = pagerState.currentPage - 1
+                            pagerState.animateScrollToPage(target)
+                        }
+                    },
+                    onNextMonth = {
+                        coroutineScope.launch {
+                            val target = pagerState.currentPage + 1
+                            pagerState.animateScrollToPage(target)
+                        }
+                    },
+                    onToday = {
+                        coroutineScope.launch {
+                            pagerState.animateScrollToPage(initialPage)
+                        }
+                    }
                 )
             }
 
             item {
-                // Calendar view with swipe gesture support
-                Box(
+                // Calendar HorizontalPager with smooth animation
+                HorizontalPager(
+                    state = pagerState,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .pointerInput(Unit) {
-                            detectHorizontalDragGestures(
-                                onDragEnd = { /* optional: can add haptic feedback here */ },
-                                onHorizontalDrag = { _, dragAmount ->
-                                    // Swipe left = negative dragAmount -> next month
-                                    // Swipe right = positive dragAmount -> previous month
-                                    val threshold = 50f
-                                    if (dragAmount < -threshold) {
-                                        viewModel.nextMonth()
-                                    } else if (dragAmount > threshold) {
-                                        viewModel.previousMonth()
-                                    }
-                                }
-                            )
-                        }
-                ) {
+                        .height(400.dp),
+                    verticalAlignment = Alignment.Top
+                ) { page ->
+                    val month = YearMonth.now().plusMonths((page - initialPage).toLong())
                     CalendarView(
-                        days = calendarDays,
+                        days = viewModel.getCalendarDaysForMonth(month),
                         onDayClick = { date ->
                             viewModel.selectDate(date)
                             showDayPopup = true
@@ -201,17 +236,17 @@ fun HomeScreen(
             }
         }
 
-        // Day check-in popup - use local variable to avoid !! on nullable delegated property
+        // Day check-in popup
         val currentDate = selectedDate
         if (showDayPopup && currentDate != null) {
-            val dayCheckIns = calendarDays
-                .find { it.date == currentDate }
-                ?.checkIns
-                ?: emptyList()
+            val dayCheckIns = viewModel.getCalendarDaysForMonth(
+                YearMonth.from(currentDate)
+            ).find { it.date == currentDate }?.checkIns ?: emptyList()
 
             DayCheckInPopup(
                 date = currentDate,
                 checkIns = dayCheckIns,
+                projects = allProjects,
                 onCheckInClick = { checkInWithProject ->
                     showDayPopup = false
                     onNavigateToCheckInDetail(
@@ -219,17 +254,9 @@ fun HomeScreen(
                         checkInWithProject.checkIn.date
                     )
                 },
-                onAddCheckIn = {
+                onAddCheckIn = { projectId ->
                     showDayPopup = false
-                    // Navigate to add check-in for the selected date
-                    // Use first available project
-                    val dateToSend = selectedDate
-                    if (allProjects.isNotEmpty() && dateToSend != null) {
-                        onNavigateToCheckInDetail(
-                            allProjects.first().id,
-                            dateToSend.toString()
-                        )
-                    }
+                    onNavigateToCheckInDetail(projectId, currentDate.toString())
                 },
                 onDismiss = {
                     showDayPopup = false
@@ -287,7 +314,8 @@ private fun MonthHeader(
     year: Int,
     month: Int,
     onPreviousMonth: () -> Unit,
-    onNextMonth: () -> Unit
+    onNextMonth: () -> Unit,
+    onToday: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -312,11 +340,22 @@ private fun MonthHeader(
                 textAlign = TextAlign.Center
             )
 
-            IconButton(onClick = onNextMonth) {
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
-                    contentDescription = "下个月"
-                )
+            Row {
+                // Today button
+                IconButton(onClick = onToday) {
+                    Icon(
+                        imageVector = Icons.Default.Today,
+                        contentDescription = "回到今天",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                IconButton(onClick = onNextMonth) {
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = "下个月"
+                    )
+                }
             }
         }
     }

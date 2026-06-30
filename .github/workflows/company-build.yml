@@ -1,0 +1,149 @@
+name: "Build & Release (Company)"
+
+on:
+  push:
+    branches: [Company]
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Checkout ──
+      - name: Checkout Company branch
+        uses: actions/checkout@v4
+
+      - name: Checkout main branch (version reference)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: _main_ref
+          fetch-depth: 0
+
+      # ── Environment ──
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      # ── Version Calculation ──
+      - name: Calculate version
+        id: ver
+        run: |
+          # Read version from main branch's build.gradle.kts
+          MAIN_VER=$(grep 'versionName' _main_ref/app/build.gradle.kts \
+            | sed 's/.*"\(.*\)".*/\1/')
+          MAIN_VCODE=$(grep 'versionCode' _main_ref/app/build.gradle.kts \
+            | sed 's/[^0-9]//g')
+
+          echo "main_version=$MAIN_VER"  >> $GITHUB_OUTPUT
+          echo "main_vcode=$MAIN_VCODE"  >> $GITHUB_OUTPUT
+
+          # Find highest existing counter for this main version
+          # Pattern: v<a>.<bbb>.<ccc> e.g. v1.002.003
+          HIGHEST=$(gh release list --limit 200 --json tagName \
+            -q ".[].tagName" \
+            | sed -n "s/^v${MAIN_VER}\.\([0-9]*\)$/\1/p" \
+            | sort -n | tail -1)
+
+          if [ -z "$HIGHEST" ]; then
+            NEXT=1
+          else
+            NEXT=$((10#$HIGHEST + 1))
+          fi
+
+          COUNTER=$(printf "%03d" $NEXT)
+          FULL_VER="${MAIN_VER}.${COUNTER}"
+          TAG="v${FULL_VER}"
+          # versionCode = main_versionCode * 10000 + counter
+          VC=$((MAIN_VCODE * 10000 + NEXT))
+
+          echo "counter=$COUNTER"         >> $GITHUB_OUTPUT
+          echo "full_version=$FULL_VER"  >> $GITHUB_OUTPUT
+          echo "tag=$TAG"                >> $GITHUB_OUTPUT
+          echo "version_code=$VC"        >> $GITHUB_OUTPUT
+
+          echo "====================================="
+          echo "  Main branch version : $MAIN_VER"
+          echo "  Company build #     : $COUNTER"
+          echo "  Full version        : $FULL_VER"
+          echo "  Tag                 : $TAG"
+          echo "  versionCode         : $VC"
+          echo "====================================="
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Patch Version ──
+      - name: Patch version in build.gradle.kts
+        run: |
+          sed -i "s|versionCode = [0-9]*|versionCode = ${{ steps.ver.outputs.version_code }}|" \
+            app/build.gradle.kts
+          sed -i "s|versionName = \"[^\"]*\"|versionName = \"${{ steps.ver.outputs.full_version }}\"|" \
+            app/build.gradle.kts
+
+          echo "--- Patched build.gradle.kts ---"
+          grep -E 'versionCode|versionName' app/build.gradle.kts
+
+      # ── Build ──
+      - name: Make Gradlew executable
+        run: chmod +x gradlew
+
+      - name: Build Release APK
+        run: ./gradlew assembleRelease --no-daemon
+
+      # ── Package & Publish ──
+      - name: Package APK
+        run: |
+          APK_SRC="app/build/outputs/apk/release/app-release.apk"
+          APK_DST="Record-Life-Items-${{ steps.ver.outputs.full_version }}.apk"
+
+          if [ ! -f "$APK_SRC" ]; then
+            echo "ERROR: APK not found at $APK_SRC"
+            ls -R app/build/outputs/
+            exit 1
+          fi
+
+          cp "$APK_SRC" "$APK_DST"
+          echo "APK: $APK_DST ($(du -h "$APK_DST" | cut -f1))"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: "📦 ${{ steps.ver.outputs.full_version }}"
+          files: "Record-Life-Items-${{ steps.ver.outputs.full_version }}.apk"
+          generate_release_notes: true
+
+      # ── Cleanup: keep only 10 latest Company releases ──
+      - name: Cleanup old Company releases (keep 10)
+        run: |
+          MAIN_VER="${{ steps.ver.outputs.main_version }}"
+
+          TAGS=$(gh release list --limit 200 --json tagName \
+            -q ".[].tagName" \
+            | sed -n "s/^v${MAIN_VER}\.\([0-9]*\)$/&/p" \
+            | sort -t. -k3 -n)
+
+          COUNT=$(echo "$TAGS" | grep -c . || echo 0)
+          echo "Found $COUNT Company releases for main version $MAIN_VER"
+
+          if [ "$COUNT" -gt 10 ]; then
+            DELETE_COUNT=$((COUNT - 10))
+            echo "Deleting $DELETE_COUNT old release(s)..."
+            echo "$TAGS" | head -n "$DELETE_COUNT" | while IFS= read -r TAG; do
+              [ -z "$TAG" ] && continue
+              echo "  → Deleting $TAG"
+              gh release delete "$TAG" --yes --cleanup-tag || true
+            done
+          else
+            echo "Within limit ($COUNT <= 10), no cleanup needed"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

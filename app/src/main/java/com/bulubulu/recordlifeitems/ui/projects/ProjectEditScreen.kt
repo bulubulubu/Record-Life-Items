@@ -21,8 +21,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -53,6 +56,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bulubulu.recordlifeitems.ui.theme.ProjectColors
+import com.bulubulu.recordlifeitems.ui.components.WheelDatePicker
 import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -68,6 +72,8 @@ fun ProjectEditScreen(
     val startDate by viewModel.startDate.collectAsState()
     val endDate by viewModel.endDate.collectAsState()
     val selectedWeekdays by viewModel.selectedWeekdays.collectAsState()
+    val fields by viewModel.fields.collectAsState()
+    val isNewProject by viewModel.isNewProject.collectAsState()
 
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showEndDatePicker by remember { mutableStateOf(false) }
@@ -77,7 +83,7 @@ fun ProjectEditScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "编辑项目",
+                        text = if (isNewProject) "新建项目" else "编辑项目",
                         style = MaterialTheme.typography.headlineSmall
                     )
                 },
@@ -157,7 +163,8 @@ fun ProjectEditScreen(
             ) {
                 ProjectColors.forEach { color ->
                     val colorLong = color.value.toLong()
-                    val isSelected = colorLong == selectedColor
+                    // Normalize: compare as Int to handle both -1090713120L and 4283215696L
+                    val isSelected = color.value.toInt().toLong() == selectedColor
                     Box(
                         modifier = Modifier
                             .size(40.dp)
@@ -170,7 +177,7 @@ fun ProjectEditScreen(
                                     Modifier
                                 }
                             )
-                            .clickable { viewModel.updateColor(colorLong) }
+                            .clickable { viewModel.updateColor(color.value.toInt().toLong()) }
                     ) {
                         if (isSelected) {
                             Box(
@@ -281,6 +288,99 @@ fun ProjectEditScreen(
                 }
             }
 
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Custom Fields Section
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "自定义字段",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                IconButton(onClick = { viewModel.addField() }) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "添加字段",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "定义打卡时需要填写的字段",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            fields.forEachIndexed { index, field ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = field.name,
+                        onValueChange = { viewModel.updateFieldName(index, it) },
+                        label = { Text("字段名称") },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    // Type selector
+                    FilterChip(
+                        selected = field.type == "number",
+                        onClick = {
+                            viewModel.updateFieldType(
+                                index,
+                                if (field.type == "number") "text" else "number"
+                            )
+                        },
+                        label = {
+                            Text(
+                                text = if (field.type == "number") "数字" else "文本",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    )
+
+                    if (fields.size > 0) {
+                        IconButton(onClick = { viewModel.removeField(index) }) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "删除字段",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (fields.isEmpty()) {
+                Text(
+                    text = "暂无自定义字段",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+
             Spacer(modifier = Modifier.height(32.dp))
 
             // Save Button
@@ -304,7 +404,7 @@ fun ProjectEditScreen(
 
     // Start Date Picker Dialog
     if (showStartDatePicker) {
-        SimpleDatePickerDialog(
+        WheelDatePicker(
             initialDate = startDate.ifBlank { LocalDate.now().toString() },
             onDateSelected = { date ->
                 viewModel.updateStartDate(date)
@@ -316,7 +416,7 @@ fun ProjectEditScreen(
 
     // End Date Picker Dialog
     if (showEndDatePicker) {
-        SimpleDatePickerDialog(
+        WheelDatePicker(
             initialDate = endDate.ifBlank { LocalDate.now().toString() },
             onDateSelected = { date ->
                 viewModel.updateEndDate(date)
@@ -328,7 +428,7 @@ fun ProjectEditScreen(
 }
 
 @Composable
-private fun SimpleDatePickerDialog(
+private fun WheelDatePicker(
     initialDate: String,
     onDateSelected: (String) -> Unit,
     onDismiss: () -> Unit
