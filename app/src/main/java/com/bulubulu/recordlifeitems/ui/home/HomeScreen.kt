@@ -143,7 +143,7 @@ fun HomeScreen(
                     state = pagerState,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(320.dp),
+                        .height(400.dp),
                     verticalAlignment = Alignment.Top
                 ) { page ->
                     val month = YearMonth.now().plusMonths((page - initialPage).toLong())

@@ -34,7 +34,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import java.time.LocalDate
+
+private const val PAD = 3
 
 @Composable
 fun WheelDatePicker(
@@ -178,17 +181,33 @@ private fun WheelSelector(
     label: String,
     modifier: Modifier = Modifier
 ) {
-    val initialIndex = items.indexOf(selectedItem).coerceAtLeast(0)
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
+    val selectedIndex = items.indexOf(selectedItem).coerceAtLeast(0)
+    // To CENTER selected item: first visible = selectedIndex + PAD - 1
+    val initialFirst = (selectedIndex + PAD - 1).coerceAtLeast(0)
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialFirst)
     val itemHeight = 40.dp
 
+    // Scroll to correct position when selected item changes
+    LaunchedEffect(selectedItem) {
+        val idx = items.indexOf(selectedItem).coerceAtLeast(0)
+        listState.scrollToItem(idx + PAD - 1)
+    }
+
+    // Snap to nearest centered item when scroll stops
     LaunchedEffect(listState) {
-        snapshotFlow { listState.firstVisibleItemIndex }
-            .distinctUntilChanged()
-            .collect { index ->
-                if (index in items.indices) {
-                    onItemSelected(items[index])
-                }
+        snapshotFlow { listState.isScrollInProgress }
+            .filter { !it }
+            .collect {
+                val first = listState.firstVisibleItemIndex
+                val offset = listState.firstVisibleItemScrollOffset
+                val hPx = listState.layoutInfo.visibleItemsInfo
+                    .firstOrNull { it.index == first }?.size ?: return@collect
+                val centeredPos = if (offset * 2 >= hPx) 2 else 1
+                val centeredLazyIdx = first + centeredPos
+                val snapTo = (centeredLazyIdx - 1).coerceAtLeast(0)
+                listState.animateScrollToItem(snapTo)
+                val itemIdx = (centeredLazyIdx - PAD).coerceIn(0, items.size - 1)
+                onItemSelected(items[itemIdx])
             }
     }
 
