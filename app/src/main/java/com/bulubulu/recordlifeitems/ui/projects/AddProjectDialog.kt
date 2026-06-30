@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -48,7 +49,7 @@ fun AddProjectDialog(
 ) {
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    var selectedColor by remember { mutableStateOf(ProjectColors.first().value.toLong()) }
+    var selectedColorIndex by remember { mutableIntStateOf(0) }
     var nameError by remember { mutableStateOf(false) }
     var startDate by remember { mutableStateOf("") }
     var endDate by remember { mutableStateOf("") }
@@ -102,8 +103,8 @@ fun AddProjectDialog(
                     ProjectColors.forEach { color ->
                         ColorOption(
                             color = color,
-                            isSelected = color == Color(selectedColor.toInt()),
-                            onClick = { selectedColor = color.value.toLong() }
+                            isSelected = ProjectColors.indexOf(color) == selectedColorIndex,
+                            onClick = { selectedColorIndex = ProjectColors.indexOf(color) }
                         )
                     }
                 }
@@ -196,7 +197,7 @@ fun AddProjectDialog(
                     } else {
                         onConfirm(
                             name,
-                            selectedColor,
+                            ProjectColors[selectedColorIndex].value.toLong(),
                             description,
                             startDate,
                             endDate,

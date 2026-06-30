@@ -70,7 +70,7 @@ fun ProjectEditScreen(
     val project by viewModel.project.collectAsState()
     val name by viewModel.name.collectAsState()
     val description by viewModel.description.collectAsState()
-    val selectedColor by viewModel.selectedColor.collectAsState()
+    val selectedColorIndex by viewModel.selectedColorIndex.collectAsState()
     val startDate by viewModel.startDate.collectAsState()
     val endDate by viewModel.endDate.collectAsState()
     val selectedWeekdays by viewModel.selectedWeekdays.collectAsState()
@@ -166,9 +166,8 @@ fun ProjectEditScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 ProjectColors.forEach { color ->
-                    val colorLong = color.value.toLong()
-                    // Normalize: compare as Int to handle both -1090713120L and 4283215696L
-                    val isSelected = color == Color(selectedColor.toInt())
+                    val colorIndex = ProjectColors.indexOf(color)
+                    val isSelected = colorIndex == selectedColorIndex
                     Box(
                         modifier = Modifier
                             .size(40.dp)
@@ -181,7 +180,7 @@ fun ProjectEditScreen(
                                     Modifier
                                 }
                             )
-                            .clickable { viewModel.updateColor(color.value.toLong()) }
+                            .clickable { viewModel.updateColorIndex(ProjectColors.indexOf(color)) }
                     ) {
                         if (isSelected) {
                             Box(
@@ -213,7 +212,7 @@ fun ProjectEditScreen(
             ) {
                 ProjectIcon(
                     iconName = selectedIcon,
-                    color = Color(selectedColor.toInt()),
+                    color = ProjectColors[selectedColorIndex],
                     size = 48
                 )
 

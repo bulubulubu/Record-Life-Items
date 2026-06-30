@@ -43,10 +43,10 @@ class ProjectEditViewModel(
     private val _description = MutableStateFlow("")
     val description: StateFlow<String> = _description.asStateFlow()
 
-    private val _selectedColor = MutableStateFlow(0L)
+    private val _selectedColorIndex = MutableStateFlow(0)
+    val selectedColorIndex: StateFlow<Int> = _selectedColorIndex.asStateFlow()
     private val _selectedIcon = MutableStateFlow<String?>(null)
     val selectedIcon: StateFlow<String?> = _selectedIcon.asStateFlow()
-    val selectedColor: StateFlow<Long> = _selectedColor.asStateFlow()
 
     private val _startDate = MutableStateFlow("")
     val startDate: StateFlow<String> = _startDate.asStateFlow()
@@ -71,7 +71,7 @@ class ProjectEditViewModel(
             // New project - set defaults
             _name.value = ""
             _description.value = ""
-            _selectedColor.value = androidx.compose.ui.graphics.Color(0xFF4CAF50).value.toLong()
+            _selectedColorIndex.value = 0  // green is first in ProjectColors
             _fields.value = emptyList()
         } else {
             // Load existing project
@@ -84,7 +84,7 @@ class ProjectEditViewModel(
         // Also react to project flow updates
         viewModelScope.launch {
             project.collect { proj ->
-                if (proj != null && _name.value.isEmpty() && _selectedColor.value == 0L) {
+                if (proj != null && _name.value.isEmpty() && _selectedColorIndex.value == 0 && projectId != 0L) {
                     loadProjectFields(proj)
                 }
             }
@@ -94,7 +94,8 @@ class ProjectEditViewModel(
     private fun loadProjectFields(proj: Project) {
         _name.value = proj.name
         _description.value = proj.description
-        _selectedColor.value = proj.color
+        // Find matching color index, default to 0
+        _selectedColorIndex.value = com.bulubulu.recordlifeitems.ui.theme.ProjectColors.indexOfFirst { it.value.toLong() == proj.color }.coerceAtLeast(0)
         _selectedIcon.value = proj.icon
 
         val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
@@ -164,8 +165,8 @@ class ProjectEditViewModel(
         _selectedIcon.value = icon
     }
 
-    fun updateColor(color: Long) {
-        _selectedColor.value = color
+    fun updateColorIndex(index: Int) {
+        _selectedColorIndex.value = index
     }
 
     fun updateStartDate(startDate: String) {
@@ -250,7 +251,7 @@ class ProjectEditViewModel(
             val updatedProject = currentProject.copy(
                 name = _name.value,
                 description = _description.value,
-                color = _selectedColor.value,
+                color = com.bulubulu.recordlifeitems.ui.theme.ProjectColors[_selectedColorIndex.value].value.toLong(),
                 icon = _selectedIcon.value,
                 weekDays = weekDaysJson,
                 startDate = startMillis,
@@ -285,7 +286,7 @@ class ProjectEditViewModel(
             val project = Project(
                 name = _name.value,
                 description = _description.value,
-                color = _selectedColor.value,
+                color = com.bulubulu.recordlifeitems.ui.theme.ProjectColors[_selectedColorIndex.value].value.toLong(),
                 icon = _selectedIcon.value,
                 weekDays = weekDaysJson,
                 startDate = startMillis,
