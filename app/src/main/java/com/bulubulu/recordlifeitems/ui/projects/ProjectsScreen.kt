@@ -94,9 +94,8 @@ fun ProjectsScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SwipeToDeleteItem(project: Project, onDelete: () -> Unit, onClick: () -> Unit) {
-    var showDeleteDialog by remember { mutableStateOf(false) }
     val dismissState = rememberSwipeToDismissBoxState(confirmValueChange = { value ->
-        if (value == SwipeToDismissBoxValue.EndToStart) { showDeleteDialog = true; false } else false
+        if (value == SwipeToDismissBoxValue.EndToStart) { onDelete(); true } else false
     })
 
     SwipeToDismissBox(
@@ -115,15 +114,6 @@ private fun SwipeToDeleteItem(project: Project, onDelete: () -> Unit, onClick: (
         ProjectListItem(project = project, onClick = onClick)
     }
 
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("\u786e\u8ba4\u5220\u9664") },
-            text = { Text("\u786e\u5b9a\u8981\u5220\u9664\u300c${project.name}\u300d\u5417\uff1f\u5220\u9664\u540e\u53ef\u5728\u4e2a\u4eba\u9875\u9762\u627e\u56de\u3002") },
-            confirmButton = { TextButton(onClick = { onDelete(); showDeleteDialog = false }) { Text("\u5220\u9664", color = Color(0xFFFF1744)) } },
-            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("\u53d6\u6d88") } }
-        )
-    }
 }
 
 @Composable
