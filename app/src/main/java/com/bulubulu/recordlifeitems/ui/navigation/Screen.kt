@@ -3,6 +3,7 @@ package com.bulubulu.recordlifeitems.ui.navigation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.ui.graphics.vector.ImageVector
 
 sealed class Screen(
@@ -24,7 +25,8 @@ sealed class Screen(
 
     data object Profile : Screen(
         route = "profile",
-        title = "个人"
+        title = "个人",
+        icon = Icons.Default.Person
     )
 
     data object DeletedProjects : Screen(
@@ -54,6 +56,6 @@ sealed class Screen(
     }
 
     companion object {
-        val bottomNavItems = listOf(Home, Projects)
+        val bottomNavItems = listOf(Home, Projects, Profile)
     }
 }

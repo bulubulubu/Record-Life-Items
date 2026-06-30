@@ -20,7 +20,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -71,11 +70,6 @@ fun ProjectsScreen(
         topBar = {
             TopAppBar(
                 title = { Text(text = "\u9879\u76ee", style = MaterialTheme.typography.headlineMedium) },
-                actions = {
-                    IconButton(onClick = onNavigateToProfile) {
-                        Icon(imageVector = Icons.Default.Person, contentDescription = "\u4e2a\u4eba")
-                    }
-                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
@@ -144,7 +138,7 @@ private fun ProjectListItem(project: Project, onClick: () -> Unit) {
             ProjectIcon(iconName = project.icon, color = Color(project.color.toInt()), size = 36)
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = project.name, style = MaterialTheme.typography.titleMedium, color = Color(project.color.toInt()), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(text = project.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val s = getScheduleText(project)
                 if (s.isNotBlank()) { Text(text = s, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 else if (project.description.isNotBlank()) { Text(text = project.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
