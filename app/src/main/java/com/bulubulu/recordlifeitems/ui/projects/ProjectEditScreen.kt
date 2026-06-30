@@ -56,6 +56,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bulubulu.recordlifeitems.ui.theme.ProjectColors
+import com.bulubulu.recordlifeitems.ui.components.ProjectIconPicker
+import com.bulubulu.recordlifeitems.ui.components.ProjectIcon
 import com.bulubulu.recordlifeitems.ui.components.WheelDatePicker
 import java.time.LocalDate
 
@@ -73,6 +75,8 @@ fun ProjectEditScreen(
     val endDate by viewModel.endDate.collectAsState()
     val selectedWeekdays by viewModel.selectedWeekdays.collectAsState()
     val fields by viewModel.fields.collectAsState()
+    val selectedIcon by viewModel.selectedIcon.collectAsState()
+    var showIconPicker by remember { mutableStateOf(false) }
     val isNewProject by viewModel.isNewProject.collectAsState()
 
     var showStartDatePicker by remember { mutableStateOf(false) }
@@ -188,6 +192,41 @@ fun ProjectEditScreen(
                                     .align(Alignment.Center)
                             )
                         }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Icon Picker
+            Text(
+                text = "选择图标",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ProjectIcon(
+                    iconName = selectedIcon,
+                    color = Color(selectedColor.toInt()),
+                    size = 48
+                )
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                OutlinedButton(onClick = { showIconPicker = true }) {
+                    Text(if (selectedIcon != null) "更换图标" else "选择图标")
+                }
+
+                if (selectedIcon != null) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    TextButton(onClick = { viewModel.updateIcon(null) }) {
+                        Text("清除")
                     }
                 }
             }
@@ -415,6 +454,14 @@ fun ProjectEditScreen(
     }
 
     // End Date Picker Dialog
+    if (showIconPicker) {
+        ProjectIconPicker(
+            selectedIcon = selectedIcon,
+            onIconSelected = { viewModel.updateIcon(it) },
+            onDismiss = { showIconPicker = false }
+        )
+    }
+
     if (showEndDatePicker) {
         WheelDatePicker(
             initialDate = endDate.ifBlank { LocalDate.now().toString() },

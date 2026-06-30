@@ -51,7 +51,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bulubulu.recordlifeitems.data.entity.Project
-import com.bulubulu.recordlifeitems.ui.components.ProjectColorCircle
+import com.bulubulu.recordlifeitems.ui.components.ProjectIcon
 import java.time.LocalDate
 import java.time.YearMonth
 import androidx.compose.material3.HorizontalDivider
@@ -287,9 +287,10 @@ private fun QuickCheckInRow(
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                ProjectColorCircle(
+                ProjectIcon(
+                    iconName = project.icon,
                     color = Color(project.color.toInt()),
-                    size = 24.dp
+                    size = 24
                 )
 
                 Spacer(modifier = Modifier.width(12.dp))

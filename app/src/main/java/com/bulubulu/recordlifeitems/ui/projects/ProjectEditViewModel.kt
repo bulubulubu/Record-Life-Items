@@ -44,6 +44,8 @@ class ProjectEditViewModel(
     val description: StateFlow<String> = _description.asStateFlow()
 
     private val _selectedColor = MutableStateFlow(0L)
+    private val _selectedIcon = MutableStateFlow<String?>(null)
+    val selectedIcon: StateFlow<String?> = _selectedIcon.asStateFlow()
     val selectedColor: StateFlow<Long> = _selectedColor.asStateFlow()
 
     private val _startDate = MutableStateFlow("")
@@ -93,6 +95,7 @@ class ProjectEditViewModel(
         _name.value = proj.name
         _description.value = proj.description
         _selectedColor.value = proj.color
+        _selectedIcon.value = proj.icon
 
         val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
 
@@ -155,6 +158,10 @@ class ProjectEditViewModel(
 
     fun updateDescription(description: String) {
         _description.value = description
+    }
+
+    fun updateIcon(icon: String?) {
+        _selectedIcon.value = icon
     }
 
     fun updateColor(color: Long) {
@@ -244,6 +251,7 @@ class ProjectEditViewModel(
                 name = _name.value,
                 description = _description.value,
                 color = _selectedColor.value,
+                icon = _selectedIcon.value,
                 weekDays = weekDaysJson,
                 startDate = startMillis,
                 endDate = endMillis,
@@ -278,6 +286,7 @@ class ProjectEditViewModel(
                 name = _name.value,
                 description = _description.value,
                 color = _selectedColor.value,
+                icon = _selectedIcon.value,
                 weekDays = weekDaysJson,
                 startDate = startMillis,
                 endDate = endMillis,

@@ -40,7 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.bulubulu.recordlifeitems.ui.components.ProjectColorCircle
+import com.bulubulu.recordlifeitems.ui.components.ProjectIcon
 import com.bulubulu.recordlifeitems.data.entity.Project
 import org.json.JSONArray
 import java.text.SimpleDateFormat
@@ -127,9 +127,10 @@ private fun ProjectListItem(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            ProjectColorCircle(
+            ProjectIcon(
+                iconName = project.icon,
                 color = Color(project.color.toInt()),
-                size = 36.dp
+                size = 36
             )
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
