@@ -11,7 +11,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
@@ -139,7 +141,7 @@ private fun SwipeableItem(
     val targetOffset = if (isSwiped) -deleteButtonWidthPx else 0f
     val animatedOffsetX by animateFloatAsState(targetValue = targetOffset, animationSpec = tween(200), label = "offset")
 
-    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))) {
+    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).height(IntrinsicSize.Min)) {
         // Delete button behind the card
         if (isSwiped) {
             Row(
@@ -194,7 +196,8 @@ private fun SwipeableItem(
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
         ) {
             Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                ProjectIcon(iconName = project.icon, color = Color(project.color.toInt()), size = 36)
+                val iconColor = if (project.color.toInt() == 0) MaterialTheme.colorScheme.primary else Color(project.color.toInt())
+                ProjectIcon(iconName = project.icon, color = iconColor, size = 36)
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(text = project.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
