@@ -135,26 +135,25 @@ private fun SwipeableItem(
     val deleteButtonWidthDp = 80
     val deleteButtonWidthPx = with(LocalDensity.current) { deleteButtonWidthDp.dp.toPx() }
     var offsetX by remember { mutableFloatStateOf(0f) }
-    var isDragging by remember { mutableStateOf(false) }
+    var cardHeight by remember { mutableStateOf(0) }
 
-    // Animate to target position
     val targetOffset = if (isSwiped) -deleteButtonWidthPx else 0f
     val animatedOffsetX by animateFloatAsState(targetValue = targetOffset, animationSpec = tween(200), label = "offset")
 
-    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).height(IntrinsicSize.Min)) {
-        // Delete button behind the card
-        if (isSwiped) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        // Delete button - match card height exactly
+        if (isSwiped && cardHeight > 0) {
             Row(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
                     .width(deleteButtonWidthDp.dp)
-                    .matchParentSize()
+                    .height(with(LocalDensity.current) { cardHeight.toDp() })
                     .background(Color(0xFFFF1744))
                     .clickable { onDelete() },
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(imageVector = Icons.Default.Delete, contentDescription = "\u5220\u9664", tint = Color.White, modifier = Modifier.size(24.dp))
+                Icon(imageVector = Icons.Default.Delete, contentDescription = "删除", tint = Color.White, modifier = Modifier.size(24.dp))
             }
         }
 
@@ -163,11 +162,10 @@ private fun SwipeableItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
+                .onSizeChanged { cardHeight = it.height }
                 .pointerInput(Unit) {
                     detectHorizontalDragGestures(
-                        onDragStart = { isDragging = true },
                         onDragEnd = {
-                            isDragging = false
                             if (offsetX < -deleteButtonWidthPx * 0.3f) {
                                 onSwipeStart()
                             } else {
@@ -175,14 +173,10 @@ private fun SwipeableItem(
                             }
                             offsetX = 0f
                         },
-                        onDragCancel = {
-                            isDragging = false
-                            offsetX = 0f
-                        },
+                        onDragCancel = { offsetX = 0f },
                         onHorizontalDrag = { _, dragAmount ->
                             if (dragAmount < 0 || offsetX < 0) {
-                                val newOffset = (offsetX + dragAmount).coerceIn(-deleteButtonWidthPx, 0f)
-                                offsetX = newOffset
+                                offsetX = (offsetX + dragAmount).coerceIn(-deleteButtonWidthPx, 0f)
                             }
                         }
                     )

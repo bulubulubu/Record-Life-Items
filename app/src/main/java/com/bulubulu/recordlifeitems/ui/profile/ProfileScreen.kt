@@ -246,8 +246,8 @@ private sealed class UpdateResult {
 }
 
 private fun checkForUpdate(): UpdateResult {
-    val url = URL(GITHUB_API_URL)
-    val conn = url.openConnection() as HttpURLConnection
+    val url = java.net.URL(GITHUB_API_URL)
+    val conn = url.openConnection() as java.net.HttpURLConnection
     conn.setRequestProperty("Accept", "application/vnd.github+json")
     conn.connectTimeout = 10000
     conn.readTimeout = 10000
@@ -255,11 +255,11 @@ private fun checkForUpdate(): UpdateResult {
     val response = conn.inputStream.bufferedReader().readText()
     conn.disconnect()
 
-    // Parse version from tag_name
-    val tagMatch = Regex("\"tag_name\"\\s*:\\s*\"v([^\"]+)\"").find(response)
-    val latestVer = tagMatch?.groupValues?.get(1) ?: return UpdateResult.UpToDate
+    val json = org.json.JSONObject(response)
+    val tagName = json.optString("tag_name", "")
+    val latestVer = tagName.removePrefix("v")
+    if (latestVer.isBlank()) return UpdateResult.UpToDate
 
-    // Compare versions
     val currentParts = CURRENT_VERSION.split(".").map { it.toIntOrNull() ?: 0 }
     val latestParts = latestVer.split(".").map { it.toIntOrNull() ?: 0 }
 
@@ -267,10 +267,18 @@ private fun checkForUpdate(): UpdateResult {
         val c = currentParts.getOrElse(i) { 0 }
         val l = latestParts.getOrElse(i) { 0 }
         if (l > c) {
-            // Find APK download URL
-            val assetMatch = Regex("\"browser_url\"\\s*:\\s*\"([^\"]*\\.apk)\"").find(response)
-            val apkUrl = assetMatch?.groupValues?.get(1) ?: ""
-            return UpdateResult.UpdateAvailable(latestVer, if (apkUrl.startsWith("http")) apkUrl else "https://github.com\$apkUrl")
+            val assets = json.optJSONArray("assets")
+            var apkUrl = ""
+            if (assets != null) {
+                for (j in 0 until assets.length()) {
+                    val asset = assets.getJSONObject(j)
+                    if (asset.getString("name").endsWith(".apk")) {
+                        apkUrl = asset.getString("browser_download_url")
+                        break
+                    }
+                }
+            }
+            return UpdateResult.UpdateAvailable(latestVer, apkUrl)
         }
         if (c > l) return UpdateResult.UpToDate
     }
