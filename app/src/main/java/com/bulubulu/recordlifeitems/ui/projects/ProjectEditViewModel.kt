@@ -9,6 +9,8 @@ import com.bulubulu.recordlifeitems.data.entity.Project
 import com.bulubulu.recordlifeitems.data.repository.ProjectRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
@@ -74,14 +76,12 @@ class ProjectEditViewModel(
             _selectedColorIndex.value = 0  // green is first in ProjectColors
             _fields.value = emptyList()
         } else {
-            // Load existing project
+            // Load existing project - wait for DB query to complete
             viewModelScope.launch {
-                val proj = project.value ?: project.firstOrNull()
-                proj?.let { loadProjectFields(it) }
+                val proj = project.filterNotNull().first()
+                loadProjectFields(proj)
             }
         }
-
-        // Removed: collect block was overwriting user changes when color=0 and name=empty
     }
 
     private fun loadProjectFields(proj: Project) {
