@@ -70,6 +70,7 @@ fun ProjectsScreen(
 ) {
     val projects by viewModel.allProjects.collectAsState()
     var currentlySwipedId by remember { mutableStateOf<Long?>(null) }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
 
     Scaffold(
         topBar = {
@@ -84,7 +85,15 @@ fun ProjectsScreen(
             }
         }
     ) { paddingValues ->
+        // Close delete button when scrolling
+        androidx.compose.runtime.LaunchedEffect(listState.isScrollInProgress) {
+            if (listState.isScrollInProgress && currentlySwipedId != null) {
+                currentlySwipedId = null
+            }
+        }
+
         LazyColumn(
+            state = listState,
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = paddingValues.calculateTopPadding() + 8.dp, bottom = paddingValues.calculateBottomPadding() + 80.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize()

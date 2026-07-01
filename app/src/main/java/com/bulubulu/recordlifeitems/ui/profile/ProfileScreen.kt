@@ -270,7 +270,7 @@ private fun checkForUpdate(): UpdateResult {
             // Find APK download URL
             val assetMatch = Regex("\"browser_url\"\\s*:\\s*\"([^\"]*\\.apk)\"").find(response)
             val apkUrl = assetMatch?.groupValues?.get(1) ?: ""
-            return UpdateResult.UpdateAvailable(latestVer, apkUrl)
+            return UpdateResult.UpdateAvailable(latestVer, if (apkUrl.startsWith("http")) apkUrl else "https://github.com\$apkUrl")
         }
         if (c > l) return UpdateResult.UpToDate
     }
