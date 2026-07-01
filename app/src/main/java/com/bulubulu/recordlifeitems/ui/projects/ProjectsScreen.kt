@@ -1,8 +1,10 @@
 package com.bulubulu.recordlifeitems.ui.projects
 
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +13,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -20,41 +24,44 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bulubulu.recordlifeitems.ui.components.ProjectIcon
 import com.bulubulu.recordlifeitems.data.entity.Project
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.json.JSONArray
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,54 +92,95 @@ fun ProjectsScreen(
             modifier = Modifier.fillMaxSize()
         ) {
             itemsIndexed(items = projects, key = { _, p -> p.id }) { _, project ->
-                SwipeToDeleteItem(project = project, onDelete = { viewModel.softDelete(project) }, onClick = { onNavigateToProjectDetail(project.id) })
+                SwipeableItem(
+                    project = project,
+                    onDelete = { viewModel.softDelete(project) },
+                    onClick = { onNavigateToProjectDetail(project.id) }
+                )
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SwipeToDeleteItem(project: Project, onDelete: () -> Unit, onClick: () -> Unit) {
-    var showDelete by remember { mutableStateOf(false) }
-    val dismissState = rememberSwipeToDismissBoxState(confirmValueChange = { value ->
-        if (value == SwipeToDismissBoxValue.EndToStart) { showDelete = true; false } else false
-    })
+private fun SwipeableItem(
+    project: Project,
+    onDelete: () -> Unit,
+    onClick: () -> Unit
+) {
+    var offsetX by remember { mutableFloatStateOf(0f) }
+    val deleteButtonWidth = 120f
+    val scope = rememberCoroutineScope()
+    val animatedOffsetX by animateFloatAsState(targetValue = offsetX, animationSpec = tween(200), label = "offset")
 
-    SwipeToDismissBox(
-        state = dismissState,
-        backgroundContent = {
-            val color by animateColorAsState(targetValue = if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) Color(0xFFFF1744) else Color.Transparent, label = "bg")
-            Box(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)).background(color).padding(horizontal = 20.dp), contentAlignment = Alignment.CenterEnd) {
-                if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) {
-                    Icon(imageVector = Icons.Default.Delete, contentDescription = "\u5220\u9664", tint = Color.White, modifier = Modifier.size(28.dp))
+    Box(modifier = Modifier.fillMaxWidth()) {
+        // Delete button behind the card
+        Row(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .width(deleteButtonWidth.dp)
+                .height(72.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFFFF1744))
+                .clickable {
+                    onDelete()
+                },
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(imageVector = Icons.Default.Delete, contentDescription = "\u5220\u9664", tint = Color.White, modifier = Modifier.size(24.dp))
+            Spacer(modifier = Modifier.width(4.dp))
+            Text("\u5220\u9664", color = Color.White, style = MaterialTheme.typography.bodyMedium)
+        }
+
+        // Foreground card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            if (offsetX < -deleteButtonWidth / 2) {
+                                // Snap to show delete button
+                                scope.launch {
+                                    offsetX = -deleteButtonWidth
+                                }
+                            } else {
+                                // Snap back
+                                scope.launch {
+                                    offsetX = 0f
+                                }
+                            }
+                        },
+                        onHorizontalDrag = { _, dragAmount ->
+                            val newOffset = offsetX + dragAmount
+                            offsetX = newOffset.coerceIn(-deleteButtonWidth, 0f)
+                        }
+                    )
                 }
-            }
-        },
-        enableDismissFromStartToEnd = false,
-        enableDismissFromEndToStart = true
-    ) {
-        ProjectListItem(project = project, onClick = onClick)
-    }
-
-}
-
-@Composable
-private fun ProjectListItem(project: Project, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            ProjectIcon(iconName = project.icon, color = Color(project.color.toInt()), size = 36)
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = project.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                val s = getScheduleText(project)
-                if (s.isNotBlank()) { Text(text = s, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                else if (project.description.isNotBlank()) { Text(text = project.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                .clickable {
+                    if (offsetX < 0) {
+                        scope.launch {
+                            offsetX = 0f
+                        }
+                    } else {
+                        onClick()
+                    }
+                },
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                ProjectIcon(iconName = project.icon, color = Color(project.color.toInt()), size = 36)
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = project.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    val s = getScheduleText(project)
+                    if (s.isNotBlank()) { Text(text = s, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    else if (project.description.isNotBlank()) { Text(text = project.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                }
             }
         }
     }

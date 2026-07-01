@@ -1,5 +1,7 @@
 package com.bulubulu.recordlifeitems.ui.profile
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,10 +22,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.RestoreFromTrash
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -45,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -60,6 +65,7 @@ fun ProfileScreen(
     viewModel: ProjectsViewModel = viewModel()
 ) {
     val deletedProjects by viewModel.deletedProjects.collectAsState()
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -71,8 +77,6 @@ fun ProfileScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(16.dp))
-
-            // Avatar
             Box(modifier = Modifier.size(96.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
                 Icon(imageVector = Icons.Default.Person, contentDescription = null, modifier = Modifier.size(56.dp), tint = MaterialTheme.colorScheme.primary)
             }
@@ -105,7 +109,7 @@ fun ProfileScreen(
                         Text(text = "\u5173\u4e8e", style = MaterialTheme.typography.titleMedium)
                         Text(text = "\u7248\u672c\u4fe1\u606f\u4e0e\u7248\u672c\u66f4\u65b0", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Text(text = "v1.002", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(text = "v1.002.022", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
@@ -117,7 +121,7 @@ fun ProfileScreen(
                         Column {
                             Text("\u5e94\u7528\u540d\u79f0\uff1a\u8bb0\u5f55\u751f\u6d3b")
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text("\u5f53\u524d\u7248\u672c\uff1av1.002")
+                            Text("\u5f53\u524d\u7248\u672c\uff1av1.002.022")
                             Spacer(modifier = Modifier.height(8.dp))
                             Text("\u529f\u80fd\u8bf4\u660e\uff1a")
                             Text("\u2022 \u65e5\u5386\u6253\u5361")
@@ -130,10 +134,22 @@ fun ProfileScreen(
                             Text("\u2022 \u65b0\u589e\u4e2a\u4eba\u9875\u9762")
                             Text("\u2022 \u65b0\u589e\u56fe\u6807\u9009\u62e9")
                             Text("\u2022 \u4fee\u590d\u989c\u8272\u9009\u62e9\u95ee\u9898")
-                            Text("\u2022 \u4fee\u590d\u6eda\u8f6e\u9009\u62e9\u5668")
                         }
                     },
-                    confirmButton = { TextButton(onClick = { showAbout = false }) { Text("\u786e\u5b9a") } }
+                    confirmButton = {
+                        Button(onClick = {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/bulubulubu/Record-Life-Items/releases/latest"))
+                            context.startActivity(intent)
+                            showAbout = false
+                        }) {
+                            Icon(imageVector = Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("\u68c0\u67e5\u66f4\u65b0")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showAbout = false }) { Text("\u5173\u95ed") }
+                    }
                 )
             }
         }
