@@ -113,18 +113,15 @@ private fun SwipeableItem(
     val scope = rememberCoroutineScope()
     val animatedOffsetX by animateFloatAsState(targetValue = offsetX, animationSpec = tween(200), label = "offset")
 
-    Box(modifier = Modifier.fillMaxWidth()) {
-        // Delete button behind the card
+    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))) {
+        // Delete button behind the card (only visible when swiped)
         Row(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .width(deleteButtonWidth.dp)
                 .height(72.dp)
-                .clip(RoundedCornerShape(12.dp))
                 .background(Color(0xFFFF1744))
-                .clickable {
-                    onDelete()
-                },
+                .clickable { onDelete() },
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {

@@ -2,6 +2,7 @@ package com.bulubulu.recordlifeitems.ui.profile
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Environment
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,19 +23,26 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.RestoreFromTrash
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -42,8 +50,10 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,6 +66,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bulubulu.recordlifeitems.ui.components.ProjectIcon
 import com.bulubulu.recordlifeitems.ui.projects.ProjectsViewModel
 import com.bulubulu.recordlifeitems.data.entity.Project
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
+
+private const val CURRENT_VERSION = "1.002.023"
+private const val GITHUB_API_URL = "https://api.github.com/repos/bulubulubu/Record-Life-Items/releases/latest"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,11 +84,19 @@ fun ProfileScreen(
 ) {
     val deletedProjects by viewModel.deletedProjects.collectAsState()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    var showAbout by remember { mutableStateOf(false) }
+    var isCheckingUpdate by remember { mutableStateOf(false) }
+    var isDownloading by remember { mutableStateOf(false) }
+    var downloadProgress by remember { mutableFloatStateOf(0f) }
+    var latestVersion by remember { mutableStateOf("") }
+    var downloadUrl by remember { mutableStateOf("") }
 
     Scaffold(
-        topBar = {
-            TopAppBar(title = { }, colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface))
-        }
+        topBar = { TopAppBar(title = { }, colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)) },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         Column(
             modifier = Modifier.fillMaxSize().padding(paddingValues).padding(horizontal = 24.dp),
@@ -100,7 +126,6 @@ fun ProfileScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             // About
-            var showAbout by remember { mutableStateOf(false) }
             Card(modifier = Modifier.fillMaxWidth().clickable { showAbout = true }, shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(imageVector = Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -109,51 +134,170 @@ fun ProfileScreen(
                         Text(text = "\u5173\u4e8e", style = MaterialTheme.typography.titleMedium)
                         Text(text = "\u7248\u672c\u4fe1\u606f\u4e0e\u7248\u672c\u66f4\u65b0", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Text(text = "v1.002.022", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(text = "v$CURRENT_VERSION", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
-            if (showAbout) {
-                AlertDialog(
-                    onDismissRequest = { showAbout = false },
-                    title = { Text("\u5173\u4e8e") },
-                    text = {
-                        Column {
-                            Text("\u5e94\u7528\u540d\u79f0\uff1a\u8bb0\u5f55\u751f\u6d3b")
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text("\u5f53\u524d\u7248\u672c\uff1av1.002.022")
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text("\u529f\u80fd\u8bf4\u660e\uff1a")
-                            Text("\u2022 \u65e5\u5386\u6253\u5361")
-                            Text("\u2022 \u9879\u76ee\u7ba1\u7406")
-                            Text("\u2022 \u6d3b\u52a8\u8bb0\u5f55")
-                            Text("\u2022 \u56fe\u6807\u4e0e\u989c\u8272\u81ea\u5b9a\u4e49")
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text("\u66f4\u65b0\u65e5\u5fd7\uff1a", style = MaterialTheme.typography.labelLarge)
-                            Text("\u2022 \u65b0\u589e\u5de6\u6ed1\u5220\u9664\u6d3b\u52a8")
-                            Text("\u2022 \u65b0\u589e\u4e2a\u4eba\u9875\u9762")
-                            Text("\u2022 \u65b0\u589e\u56fe\u6807\u9009\u62e9")
-                            Text("\u2022 \u4fee\u590d\u989c\u8272\u9009\u62e9\u95ee\u9898")
-                        }
-                    },
-                    confirmButton = {
-                        Button(onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/bulubulubu/Record-Life-Items/releases/latest"))
-                            context.startActivity(intent)
-                            showAbout = false
-                        }) {
-                            Icon(imageVector = Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("\u68c0\u67e5\u66f4\u65b0")
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showAbout = false }) { Text("\u5173\u95ed") }
+            // Download progress
+            if (isDownloading) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                        Text(text = "\u6b63\u5728\u4e0b\u8f7d\u66f4\u65b0...", style = MaterialTheme.typography.bodyMedium)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        LinearProgressIndicator(progress = { downloadProgress }, modifier = Modifier.fillMaxWidth())
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(text = "${(downloadProgress * 100).toInt()}%", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                )
+                }
             }
         }
     }
+
+    if (showAbout) {
+        AlertDialog(
+            onDismissRequest = { showAbout = false },
+            title = {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("\u5173\u4e8e")
+                    IconButton(onClick = {
+                        showAbout = false
+                        scope.launch {
+                            isCheckingUpdate = true
+                            try {
+                                val result = withContext(Dispatchers.IO) { checkForUpdate() }
+                                isCheckingUpdate = false
+                                when (result) {
+                                    is UpdateResult.UpToDate -> {
+                                        snackbarHostState.showSnackbar("\u5df2\u7ecf\u662f\u6700\u65b0\u7248\u672c")
+                                    }
+                                    is UpdateResult.UpdateAvailable -> {
+                                        latestVersion = result.version
+                                        downloadUrl = result.downloadUrl
+                                        // Start download
+                                        isDownloading = true
+                                        downloadProgress = 0f
+                                        scope.launch {
+                                            try {
+                                                val file = withContext(Dispatchers.IO) {
+                                                    downloadApk(downloadUrl) { progress ->
+                                                        downloadProgress = progress
+                                                    }
+                                                }
+                                                isDownloading = false
+                                                // Install
+                                                val intent = Intent(Intent.ACTION_VIEW).apply {
+                                                    setDataAndType(Uri.fromFile(file), "application/vnd.android.package-archive")
+                                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                                }
+                                                context.startActivity(intent)
+                                            } catch (e: Exception) {
+                                                isDownloading = false
+                                                snackbarHostState.showSnackbar("\u4e0b\u8f7d\u5931\u8d25: ${e.message}")
+                                            }
+                                        }
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                isCheckingUpdate = false
+                                snackbarHostState.showSnackbar("\u68c0\u67e5\u66f4\u65b0\u5931\u8d25: ${e.message}")
+                            }
+                        }
+                    }) {
+                        if (isCheckingUpdate) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(imageVector = Icons.Default.SystemUpdate, contentDescription = "\u68c0\u67e5\u66f4\u65b0")
+                        }
+                    }
+                }
+            },
+            text = {
+                Column {
+                    Text("\u5e94\u7528\u540d\u79f0\uff1a\u8bb0\u5f55\u751f\u6d3b")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("\u5f53\u524d\u7248\u672c\uff1av$CURRENT_VERSION")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("\u529f\u80fd\u8bf4\u660e\uff1a")
+                    Text("\u2022 \u65e5\u5386\u6253\u5361")
+                    Text("\u2022 \u9879\u76ee\u7ba1\u7406")
+                    Text("\u2022 \u6d3b\u52a8\u8bb0\u5f55")
+                    Text("\u2022 \u56fe\u6807\u4e0e\u989c\u8272\u81ea\u5b9a\u4e49")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("\u66f4\u65b0\u65e5\u5fd7\uff1a", style = MaterialTheme.typography.labelLarge)
+                    Text("\u2022 \u65b0\u589e\u5de6\u6ed1\u5220\u9664\u6d3b\u52a8")
+                    Text("\u2022 \u65b0\u589e\u4e2a\u4eba\u9875\u9762")
+                    Text("\u2022 \u65b0\u589e\u56fe\u6807\u9009\u62e9")
+                }
+            },
+            confirmButton = { TextButton(onClick = { showAbout = false }) { Text("\u5173\u95ed") } }
+        )
+    }
+}
+
+private sealed class UpdateResult {
+    data object UpToDate : UpdateResult()
+    data class UpdateAvailable(val version: String, val downloadUrl: String) : UpdateResult()
+}
+
+private fun checkForUpdate(): UpdateResult {
+    val url = URL(GITHUB_API_URL)
+    val conn = url.openConnection() as HttpURLConnection
+    conn.setRequestProperty("Accept", "application/vnd.github+json")
+    conn.connectTimeout = 10000
+    conn.readTimeout = 10000
+
+    val response = conn.inputStream.bufferedReader().readText()
+    conn.disconnect()
+
+    // Parse version from tag_name
+    val tagMatch = Regex("\"tag_name\"\\s*:\\s*\"v([^\"]+)\"").find(response)
+    val latestVer = tagMatch?.groupValues?.get(1) ?: return UpdateResult.UpToDate
+
+    // Compare versions
+    val currentParts = CURRENT_VERSION.split(".").map { it.toIntOrNull() ?: 0 }
+    val latestParts = latestVer.split(".").map { it.toIntOrNull() ?: 0 }
+
+    for (i in 0 until maxOf(currentParts.size, latestParts.size)) {
+        val c = currentParts.getOrElse(i) { 0 }
+        val l = latestParts.getOrElse(i) { 0 }
+        if (l > c) {
+            // Find APK download URL
+            val assetMatch = Regex("\"browser_url\"\\s*:\\s*\"([^\"]*\\.apk)\"").find(response)
+            val apkUrl = assetMatch?.groupValues?.get(1) ?: ""
+            return UpdateResult.UpdateAvailable(latestVer, apkUrl)
+        }
+        if (c > l) return UpdateResult.UpToDate
+    }
+    return UpdateResult.UpToDate
+}
+
+private fun downloadApk(urlStr: String, onProgress: (Float) -> Unit): java.io.File {
+    val url = URL(urlStr)
+    val conn = url.openConnection() as HttpURLConnection
+    conn.connectTimeout = 15000
+    conn.readTimeout = 15000
+
+    val totalSize = conn.contentLength.toLong()
+    val dir = java.io.File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "")
+    val file = java.io.File(dir, "Record-Life-Items-latest.apk")
+
+    conn.inputStream.use { input ->
+        file.outputStream().use { output ->
+            val buffer = ByteArray(8192)
+            var bytesRead: Int
+            var totalRead = 0L
+            while (input.read(buffer).also { bytesRead = it } != -1) {
+                output.write(buffer, 0, bytesRead)
+                totalRead += bytesRead
+                if (totalSize > 0) {
+                    onProgress(totalRead.toFloat() / totalSize)
+                }
+            }
+        }
+    }
+    conn.disconnect()
+    return file
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
