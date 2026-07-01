@@ -37,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.bulubulu.recordlifeitems.ui.theme.ProjectColors
@@ -197,7 +198,7 @@ fun AddProjectDialog(
                     } else {
                         onConfirm(
                             name,
-                            ProjectColors[selectedColorIndex].value.toLong(),
+                            ProjectColors[selectedColorIndex].let { c -> (c.value.toLong() ushr 32).toInt().toLong() },
                             description,
                             startDate,
                             endDate,

@@ -247,7 +247,7 @@ class ProjectEditViewModel(
             val updatedProject = currentProject.copy(
                 name = _name.value,
                 description = _description.value,
-                color = com.bulubulu.recordlifeitems.ui.theme.ProjectColors[_selectedColorIndex.value].value.toLong(),
+                color = com.bulubulu.recordlifeitems.ui.theme.ProjectColors[_selectedColorIndex.value].let { c -> (c.value.toLong() ushr 32).toInt().toLong() },
                 icon = _selectedIcon.value,
                 weekDays = weekDaysJson,
                 startDate = startMillis,
@@ -282,7 +282,7 @@ class ProjectEditViewModel(
             val project = Project(
                 name = _name.value,
                 description = _description.value,
-                color = com.bulubulu.recordlifeitems.ui.theme.ProjectColors[_selectedColorIndex.value].value.toLong(),
+                color = com.bulubulu.recordlifeitems.ui.theme.ProjectColors[_selectedColorIndex.value].let { c -> (c.value.toLong() ushr 32).toInt().toLong() },
                 icon = _selectedIcon.value,
                 weekDays = weekDaysJson,
                 startDate = startMillis,
