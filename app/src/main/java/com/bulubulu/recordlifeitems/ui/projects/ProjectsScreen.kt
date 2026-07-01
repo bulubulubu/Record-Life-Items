@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,7 +14,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -32,7 +32,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -41,13 +40,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -55,8 +54,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bulubulu.recordlifeitems.ui.components.ProjectIcon
 import com.bulubulu.recordlifeitems.data.entity.Project
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import org.json.JSONArray
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -72,6 +69,7 @@ fun ProjectsScreen(
     viewModel: ProjectsViewModel = viewModel()
 ) {
     val projects by viewModel.allProjects.collectAsState()
+    var currentlySwipedId by remember { mutableStateOf<Long?>(null) }
 
     Scaffold(
         topBar = {
@@ -94,8 +92,20 @@ fun ProjectsScreen(
             itemsIndexed(items = projects, key = { _, p -> p.id }) { _, project ->
                 SwipeableItem(
                     project = project,
-                    onDelete = { viewModel.softDelete(project) },
-                    onClick = { onNavigateToProjectDetail(project.id) }
+                    isSwiped = currentlySwipedId == project.id,
+                    onSwipeStart = { currentlySwipedId = project.id },
+                    onSwipeCancel = { if (currentlySwipedId == project.id) currentlySwipedId = null },
+                    onDelete = {
+                        currentlySwipedId = null
+                        viewModel.softDelete(project)
+                    },
+                    onClick = {
+                        if (currentlySwipedId != null) {
+                            currentlySwipedId = null
+                        } else {
+                            onNavigateToProjectDetail(project.id)
+                        }
+                    }
                 )
             }
         }
@@ -105,29 +115,36 @@ fun ProjectsScreen(
 @Composable
 private fun SwipeableItem(
     project: Project,
+    isSwiped: Boolean,
+    onSwipeStart: () -> Unit,
+    onSwipeCancel: () -> Unit,
     onDelete: () -> Unit,
     onClick: () -> Unit
 ) {
+    val deleteButtonWidthDp = 80
+    val deleteButtonWidthPx = with(LocalDensity.current) { deleteButtonWidthDp.dp.toPx() }
     var offsetX by remember { mutableFloatStateOf(0f) }
-    val deleteButtonWidth = 120f
-    val scope = rememberCoroutineScope()
-    val animatedOffsetX by animateFloatAsState(targetValue = offsetX, animationSpec = tween(200), label = "offset")
+    var isDragging by remember { mutableStateOf(false) }
+
+    // Animate to target position
+    val targetOffset = if (isSwiped) -deleteButtonWidthPx else 0f
+    val animatedOffsetX by animateFloatAsState(targetValue = targetOffset, animationSpec = tween(200), label = "offset")
 
     Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))) {
-        // Delete button behind the card (only visible when swiped)
-        Row(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .width(deleteButtonWidth.dp)
-                .height(72.dp)
-                .background(Color(0xFFFF1744))
-                .clickable { onDelete() },
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(imageVector = Icons.Default.Delete, contentDescription = "\u5220\u9664", tint = Color.White, modifier = Modifier.size(24.dp))
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("\u5220\u9664", color = Color.White, style = MaterialTheme.typography.bodyMedium)
+        // Delete button behind the card
+        if (isSwiped) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .width(deleteButtonWidthDp.dp)
+                    .matchParentSize()
+                    .background(Color(0xFFFF1744))
+                    .clickable { onDelete() },
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(imageVector = Icons.Default.Delete, contentDescription = "\u5220\u9664", tint = Color.White, modifier = Modifier.size(24.dp))
+            }
         }
 
         // Foreground card
@@ -137,34 +154,32 @@ private fun SwipeableItem(
                 .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
                 .pointerInput(Unit) {
                     detectHorizontalDragGestures(
+                        onDragStart = { isDragging = true },
                         onDragEnd = {
-                            if (offsetX < -deleteButtonWidth / 2) {
-                                // Snap to show delete button
-                                scope.launch {
-                                    offsetX = -deleteButtonWidth
-                                }
+                            isDragging = false
+                            if (offsetX < -deleteButtonWidthPx * 0.3f) {
+                                onSwipeStart()
                             } else {
-                                // Snap back
-                                scope.launch {
-                                    offsetX = 0f
-                                }
+                                onSwipeCancel()
                             }
+                            offsetX = 0f
+                        },
+                        onDragCancel = {
+                            isDragging = false
+                            offsetX = 0f
                         },
                         onHorizontalDrag = { _, dragAmount ->
-                            val newOffset = offsetX + dragAmount
-                            offsetX = newOffset.coerceIn(-deleteButtonWidth, 0f)
+                            if (dragAmount < 0 || offsetX < 0) {
+                                val newOffset = (offsetX + dragAmount).coerceIn(-deleteButtonWidthPx, 0f)
+                                offsetX = newOffset
+                            }
                         }
                     )
                 }
-                .clickable {
-                    if (offsetX < 0) {
-                        scope.launch {
-                            offsetX = 0f
-                        }
-                    } else {
-                        onClick()
-                    }
-                },
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }
+                ) { onClick() },
             shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)

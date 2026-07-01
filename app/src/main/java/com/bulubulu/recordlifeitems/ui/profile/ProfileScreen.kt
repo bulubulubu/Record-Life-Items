@@ -180,15 +180,20 @@ fun ProfileScreen(
                                         scope.launch {
                                             try {
                                                 val file = withContext(Dispatchers.IO) {
-                                                    downloadApk(downloadUrl) { progress ->
+                                                    downloadApk(context, downloadUrl) { progress ->
                                                         downloadProgress = progress
                                                     }
                                                 }
                                                 isDownloading = false
                                                 // Install
+                                                val uri = androidx.core.content.FileProvider.getUriForFile(
+                                                    context,
+                                                    context.packageName + ".fileprovider",
+                                                    file
+                                                )
                                                 val intent = Intent(Intent.ACTION_VIEW).apply {
-                                                    setDataAndType(Uri.fromFile(file), "application/vnd.android.package-archive")
-                                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                                    setDataAndType(uri, "application/vnd.android.package-archive")
+                                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
                                                 }
                                                 context.startActivity(intent)
                                             } catch (e: Exception) {
@@ -272,14 +277,15 @@ private fun checkForUpdate(): UpdateResult {
     return UpdateResult.UpToDate
 }
 
-private fun downloadApk(urlStr: String, onProgress: (Float) -> Unit): java.io.File {
+private fun downloadApk(context: android.content.Context, urlStr: String, onProgress: (Float) -> Unit): java.io.File {
     val url = URL(urlStr)
     val conn = url.openConnection() as HttpURLConnection
-    conn.connectTimeout = 15000
-    conn.readTimeout = 15000
+    conn.connectTimeout = 30000
+    conn.readTimeout = 30000
+    conn.instanceFollowRedirects = true
 
     val totalSize = conn.contentLength.toLong()
-    val dir = java.io.File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "")
+    val dir = context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS) ?: context.cacheDir
     val file = java.io.File(dir, "Record-Life-Items-latest.apk")
 
     conn.inputStream.use { input ->
