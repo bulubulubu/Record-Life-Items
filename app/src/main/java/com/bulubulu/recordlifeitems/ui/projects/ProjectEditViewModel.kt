@@ -81,21 +81,17 @@ class ProjectEditViewModel(
             }
         }
 
-        // Also react to project flow updates
-        viewModelScope.launch {
-            project.collect { proj ->
-                if (proj != null && _name.value.isEmpty() && _selectedColorIndex.value == 0 && projectId != 0L) {
-                    loadProjectFields(proj)
-                }
-            }
-        }
+        // Removed: collect block was overwriting user changes when color=0 and name=empty
     }
 
     private fun loadProjectFields(proj: Project) {
         _name.value = proj.name
         _description.value = proj.description
         // Find matching color index, default to 0
-        _selectedColorIndex.value = com.bulubulu.recordlifeitems.ui.theme.ProjectColors.indexOfFirst { it.value.toLong() == proj.color }.coerceAtLeast(0)
+        _selectedColorIndex.value = run {
+            val targetColor = androidx.compose.ui.graphics.Color(proj.color.toInt())
+            com.bulubulu.recordlifeitems.ui.theme.ProjectColors.indexOfFirst { it == targetColor }.coerceAtLeast(0)
+        }
         _selectedIcon.value = proj.icon
 
         val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
