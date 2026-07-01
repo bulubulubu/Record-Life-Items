@@ -72,7 +72,7 @@ import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
 
-private const val CURRENT_VERSION = "1.002.023"
+// Version is read dynamically from PackageManager
 private const val GITHUB_API_URL = "https://api.github.com/repos/bulubulubu/Record-Life-Items/releases/latest"
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -134,7 +134,7 @@ fun ProfileScreen(
                         Text(text = "\u5173\u4e8e", style = MaterialTheme.typography.titleMedium)
                         Text(text = "\u7248\u672c\u4fe1\u606f\u4e0e\u7248\u672c\u66f4\u65b0", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Text(text = "v$CURRENT_VERSION", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(text = "v${getCurrentVersion(context)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
@@ -165,8 +165,9 @@ fun ProfileScreen(
                         scope.launch {
                             isCheckingUpdate = true
                             try {
-                                val result = withContext(Dispatchers.IO) { checkForUpdate() }
+                                val result = withContext(Dispatchers.IO) { checkForUpdate(context) }
                                 isCheckingUpdate = false
+                                showAbout = false
                                 when (result) {
                                     is UpdateResult.UpToDate -> {
                                         snackbarHostState.showSnackbar("\u5df2\u7ecf\u662f\u6700\u65b0\u7248\u672c")
@@ -221,7 +222,7 @@ fun ProfileScreen(
                 Column {
                     Text("\u5e94\u7528\u540d\u79f0\uff1a\u8bb0\u5f55\u751f\u6d3b")
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("\u5f53\u524d\u7248\u672c\uff1av$CURRENT_VERSION")
+                    Text("当前版本：v${getCurrentVersion(context)}")
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("\u529f\u80fd\u8bf4\u660e\uff1a")
                     Text("\u2022 \u65e5\u5386\u6253\u5361")
@@ -245,7 +246,14 @@ private sealed class UpdateResult {
     data class UpdateAvailable(val version: String, val downloadUrl: String) : UpdateResult()
 }
 
-private fun checkForUpdate(): UpdateResult {
+private fun getCurrentVersion(context: android.content.Context): String {
+    return try {
+        val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+        pInfo.versionName ?: "unknown"
+    } catch (e: Exception) { "unknown" }
+}
+
+private fun checkForUpdate(context: android.content.Context): UpdateResult {
     val url = java.net.URL(GITHUB_API_URL)
     val conn = url.openConnection() as java.net.HttpURLConnection
     conn.setRequestProperty("Accept", "application/vnd.github+json")
@@ -260,7 +268,8 @@ private fun checkForUpdate(): UpdateResult {
     val latestVer = tagName.removePrefix("v")
     if (latestVer.isBlank()) return UpdateResult.UpToDate
 
-    val currentParts = CURRENT_VERSION.split(".").map { it.toIntOrNull() ?: 0 }
+    val currentVer = getCurrentVersion(context)
+    val currentParts = currentVer.split(".").map { it.toIntOrNull() ?: 0 }
     val latestParts = latestVer.split(".").map { it.toIntOrNull() ?: 0 }
 
     for (i in 0 until maxOf(currentParts.size, latestParts.size)) {

@@ -287,9 +287,10 @@ private fun QuickCheckInRow(
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                val iconColor = if (project.color.toInt() == 0) MaterialTheme.colorScheme.primary else Color(project.color.toInt())
                 ProjectIcon(
                     iconName = project.icon,
-                    color = Color(project.color.toInt()),
+                    color = iconColor,
                     size = 24
                 )
 

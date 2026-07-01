@@ -131,8 +131,9 @@ private fun DayCell(
                     .take(4) // Max 4 dots
 
                 uniqueColors.forEach { colorLong ->
+                    val dotColor = if (colorLong.toInt() == 0) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color(colorLong.toInt())
                     ColorIndicator(
-                        color = androidx.compose.ui.graphics.Color(colorLong.toInt()),
+                        color = dotColor,
                         size = 5.dp,
                         modifier = Modifier.padding(horizontal = 1.dp)
                     )

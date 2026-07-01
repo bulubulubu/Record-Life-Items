@@ -194,7 +194,7 @@ private fun SwipeableItem(
                 ProjectIcon(iconName = project.icon, color = iconColor, size = 36)
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(text = project.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(text = project.name, style = MaterialTheme.typography.titleMedium, color = iconColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     val s = getScheduleText(project)
                     if (s.isNotBlank()) { Text(text = s, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     else if (project.description.isNotBlank()) { Text(text = project.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
