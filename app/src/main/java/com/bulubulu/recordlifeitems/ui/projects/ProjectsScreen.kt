@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -11,17 +12,17 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -40,12 +41,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -53,6 +56,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bulubulu.recordlifeitems.ui.components.ProjectIcon
 import com.bulubulu.recordlifeitems.data.entity.Project
@@ -72,7 +76,20 @@ fun ProjectsScreen(
 ) {
     val projects by viewModel.allProjects.collectAsState()
     var currentlySwipedId by remember { mutableStateOf<Long?>(null) }
-    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val listState = rememberLazyListState()
+
+    // Drag state
+    val density = LocalDensity.current
+    var draggedItemIndex by remember { mutableIntStateOf(-1) }
+    var draggedOffsetY by remember { mutableFloatStateOf(0f) }
+    var itemHeightPx by remember { mutableIntStateOf(0) }
+
+    // Close swiped item when scrolling
+    androidx.compose.runtime.LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress && currentlySwipedId != null) {
+            currentlySwipedId = null
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -87,23 +104,21 @@ fun ProjectsScreen(
             }
         }
     ) { paddingValues ->
-        // Close delete button when scrolling
-        androidx.compose.runtime.LaunchedEffect(listState.isScrollInProgress) {
-            if (listState.isScrollInProgress && currentlySwipedId != null) {
-                currentlySwipedId = null
-            }
-        }
-
         LazyColumn(
             state = listState,
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = paddingValues.calculateTopPadding() + 8.dp, bottom = paddingValues.calculateBottomPadding() + 80.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            itemsIndexed(items = projects, key = { _, p -> p.id }) { _, project ->
+            itemsIndexed(items = projects, key = { _, p -> p.id }) { index, project ->
+                val isDragging = draggedItemIndex == index
+                val offsetY = if (isDragging) draggedOffsetY else 0f
+
                 SwipeableItem(
                     project = project,
                     isSwiped = currentlySwipedId == project.id,
+                    isDragging = isDragging,
+                    offsetY = offsetY,
                     onSwipeStart = { currentlySwipedId = project.id },
                     onSwipeCancel = { if (currentlySwipedId == project.id) currentlySwipedId = null },
                     onDelete = {
@@ -113,10 +128,32 @@ fun ProjectsScreen(
                     onClick = {
                         if (currentlySwipedId != null) {
                             currentlySwipedId = null
-                        } else {
+                        } else if (draggedItemIndex == -1) {
                             onNavigateToProjectDetail(project.id)
                         }
-                    }
+                    },
+                    onDragStart = {
+                        currentlySwipedId = null
+                        draggedItemIndex = index
+                        draggedOffsetY = 0f
+                    },
+                    onDrag = { deltaY ->
+                        draggedOffsetY += deltaY
+                        // Calculate target index
+                        val spacingPx = with(density) { 8.dp.toPx() }
+                        val targetIndex = (index + (draggedOffsetY / (itemHeightPx + spacingPx)).toInt())
+                            .coerceIn(0, projects.size - 1)
+                        if (targetIndex != draggedItemIndex && targetIndex in projects.indices) {
+                            viewModel.reorderProjects(draggedItemIndex, targetIndex)
+                            draggedItemIndex = targetIndex
+                            draggedOffsetY = 0f
+                        }
+                    },
+                    onDragEnd = {
+                        draggedItemIndex = -1
+                        draggedOffsetY = 0f
+                    },
+                    onItemHeightChanged = { itemHeightPx = it }
                 )
             }
         }
@@ -127,34 +164,50 @@ fun ProjectsScreen(
 private fun SwipeableItem(
     project: Project,
     isSwiped: Boolean,
+    isDragging: Boolean,
+    offsetY: Float,
     onSwipeStart: () -> Unit,
     onSwipeCancel: () -> Unit,
     onDelete: () -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onDragStart: () -> Unit,
+    onDrag: (Float) -> Unit,
+    onDragEnd: () -> Unit,
+    onItemHeightChanged: (Int) -> Unit
 ) {
     val deleteButtonWidthDp = 80
     val deleteButtonWidthPx = with(LocalDensity.current) { deleteButtonWidthDp.dp.toPx() }
     var offsetX by remember { mutableFloatStateOf(0f) }
     var cardHeight by remember { mutableStateOf(0) }
+    val density = LocalDensity.current
 
     val targetOffset = if (isSwiped) -deleteButtonWidthPx else 0f
     val animatedOffsetX by animateFloatAsState(targetValue = targetOffset, animationSpec = tween(200), label = "offset")
 
-    Box(modifier = Modifier.fillMaxWidth()) {
-        // Delete button - match card height exactly
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .offset { IntOffset(0, offsetY.roundToInt()) }
+            .zIndex(if (isDragging) 1f else 0f)
+            .onSizeChanged { size ->
+                cardHeight = size.height
+                onItemHeightChanged(size.height)
+            }
+    ) {
+        // Delete button behind the card
         if (isSwiped && cardHeight > 0) {
             Row(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
                     .width(deleteButtonWidthDp.dp)
-                    .height(with(LocalDensity.current) { cardHeight.toDp() })
+                    .height(with(density) { cardHeight.toDp() })
                     .clip(RoundedCornerShape(12.dp))
                     .background(Color(0xFFFF1744))
                     .clickable { onDelete() },
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(imageVector = Icons.Default.Delete, contentDescription = "删除", tint = Color.White, modifier = Modifier.size(24.dp))
+                Icon(imageVector = Icons.Default.Delete, contentDescription = "\u5220\u9664", tint = Color.White, modifier = Modifier.size(24.dp))
             }
         }
 
@@ -163,7 +216,7 @@ private fun SwipeableItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
-                .onSizeChanged { cardHeight = it.height }
+                .shadow(if (isDragging) 8.dp else 0.dp, RoundedCornerShape(12.dp))
                 .pointerInput(Unit) {
                     detectHorizontalDragGestures(
                         onDragEnd = {
@@ -182,13 +235,25 @@ private fun SwipeableItem(
                         }
                     )
                 }
+                .pointerInput(Unit) {
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = { onDragStart() },
+                        onDragEnd = { onDragEnd() },
+                        onDragCancel = { onDragEnd() },
+                        onDrag = { _, dragAmount -> onDrag(dragAmount.y) }
+                    )
+                }
                 .clickable(
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() }
-                ) { onClick() },
+                ) {
+                    if (isSwiped) onSwipeCancel() else onClick()
+                },
             shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            colors = CardDefaults.cardColors(
+                containerColor = if (isDragging) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = if (isDragging) 4.dp else 1.dp)
         ) {
             Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 val iconColor = if (project.color.toInt() == 0) MaterialTheme.colorScheme.primary else Color(project.color.toInt())
