@@ -84,7 +84,6 @@ import kotlin.math.roundToInt
 import androidx.compose.ui.platform.LocalDensity
 
 // Version is read dynamically from PackageManager
-private const val GITHUB_API_URL = "https://api.github.com/repos/bulubulubu/Record-Life-Items/releases/latest"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -99,11 +98,11 @@ fun ProfileScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     var showAbout by remember { mutableStateOf(false) }
-    var isCheckingUpdate by remember { mutableStateOf(false) }
-    var isDownloading by remember { mutableStateOf(false) }
-    var downloadProgress by remember { mutableFloatStateOf(0f) }
-    var latestVersion by remember { mutableStateOf("") }
-    var downloadUrl by remember { mutableStateOf("") }
+    val updateViewModel: UpdateViewModel = viewModel()
+    val isDownloading by updateViewModel.isDownloading.collectAsState()
+    val downloadProgress by updateViewModel.downloadProgress.collectAsState()
+    val statusMessage by updateViewModel.statusMessage.collectAsState()
+    val isChecking by updateViewModel.isChecking.collectAsState()
 
     Scaffold(
         topBar = { TopAppBar(title = { }, colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)) },
@@ -145,7 +144,7 @@ fun ProfileScreen(
                         Text(text = "\u5173\u4e8e", style = MaterialTheme.typography.titleMedium)
                         Text(text = "\u7248\u672c\u4fe1\u606f\u4e0e\u7248\u672c\u66f4\u65b0", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Text(text = "v${getCurrentVersion(context)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(text = "v${UpdateViewModel.getCurrentVersion(context)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
@@ -172,56 +171,9 @@ fun ProfileScreen(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("\u5173\u4e8e")
                     IconButton(onClick = {
-                        showAbout = false
-                        scope.launch {
-                            isCheckingUpdate = true
-                            try {
-                                val result = withContext(Dispatchers.IO) { checkForUpdate(context) }
-                                isCheckingUpdate = false
-                                showAbout = false
-                                when (result) {
-                                    is UpdateResult.UpToDate -> {
-                                        snackbarHostState.showSnackbar("\u5df2\u7ecf\u662f\u6700\u65b0\u7248\u672c")
-                                    }
-                                    is UpdateResult.UpdateAvailable -> {
-                                        latestVersion = result.version
-                                        downloadUrl = result.downloadUrl
-                                        // Start download
-                                        isDownloading = true
-                                        downloadProgress = 0f
-                                        scope.launch {
-                                            try {
-                                                val file = withContext(Dispatchers.IO) {
-                                                    downloadApk(context, downloadUrl) { progress ->
-                                                        downloadProgress = progress
-                                                    }
-                                                }
-                                                isDownloading = false
-                                                // Install
-                                                val uri = androidx.core.content.FileProvider.getUriForFile(
-                                                    context,
-                                                    context.packageName + ".fileprovider",
-                                                    file
-                                                )
-                                                val intent = Intent(Intent.ACTION_VIEW).apply {
-                                                    setDataAndType(uri, "application/vnd.android.package-archive")
-                                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                                }
-                                                context.startActivity(intent)
-                                            } catch (e: Exception) {
-                                                isDownloading = false
-                                                snackbarHostState.showSnackbar("\u4e0b\u8f7d\u5931\u8d25: ${e.message}")
-                                            }
-                                        }
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                isCheckingUpdate = false
-                                snackbarHostState.showSnackbar("\u68c0\u67e5\u66f4\u65b0\u5931\u8d25: ${e.message}")
-                            }
-                        }
+                        updateViewModel.checkAndUpdate(context)
                     }) {
-                        if (isCheckingUpdate) {
+                        if (isChecking) {
                             CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                         } else {
                             Icon(imageVector = Icons.Default.SystemUpdate, contentDescription = "\u68c0\u67e5\u66f4\u65b0")
@@ -233,7 +185,7 @@ fun ProfileScreen(
                 Column {
                     Text("\u5e94\u7528\u540d\u79f0\uff1a\u8bb0\u5f55\u751f\u6d3b")
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("当前版本：v${getCurrentVersion(context)}")
+                    Text("当前版本：v${UpdateViewModel.getCurrentVersion(context)}")
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("\u529f\u80fd\u8bf4\u660e\uff1a")
                     Text("\u2022 \u65e5\u5386\u6253\u5361")
@@ -252,10 +204,7 @@ fun ProfileScreen(
     }
 }
 
-private sealed class UpdateResult {
-    data object UpToDate : UpdateResult()
-    data class UpdateAvailable(val version: String, val downloadUrl: String) : UpdateResult()
-}
+
 
 private fun getCurrentVersion(context: android.content.Context): String {
     return try {
@@ -264,75 +213,7 @@ private fun getCurrentVersion(context: android.content.Context): String {
     } catch (e: Exception) { "unknown" }
 }
 
-private fun checkForUpdate(context: android.content.Context): UpdateResult {
-    val url = java.net.URL(GITHUB_API_URL)
-    val conn = url.openConnection() as java.net.HttpURLConnection
-    conn.setRequestProperty("Accept", "application/vnd.github+json")
-    conn.connectTimeout = 10000
-    conn.readTimeout = 10000
 
-    val response = conn.inputStream.bufferedReader().readText()
-    conn.disconnect()
-
-    val json = org.json.JSONObject(response)
-    val tagName = json.optString("tag_name", "")
-    val latestVer = tagName.removePrefix("v")
-    if (latestVer.isBlank()) return UpdateResult.UpToDate
-
-    val currentVer = getCurrentVersion(context)
-    val currentParts = currentVer.split(".").map { it.toIntOrNull() ?: 0 }
-    val latestParts = latestVer.split(".").map { it.toIntOrNull() ?: 0 }
-
-    for (i in 0 until maxOf(currentParts.size, latestParts.size)) {
-        val c = currentParts.getOrElse(i) { 0 }
-        val l = latestParts.getOrElse(i) { 0 }
-        if (l > c) {
-            val assets = json.optJSONArray("assets")
-            var apkUrl = ""
-            if (assets != null) {
-                for (j in 0 until assets.length()) {
-                    val asset = assets.getJSONObject(j)
-                    if (asset.getString("name").endsWith(".apk")) {
-                        apkUrl = asset.getString("browser_download_url")
-                        break
-                    }
-                }
-            }
-            return UpdateResult.UpdateAvailable(latestVer, apkUrl)
-        }
-        if (c > l) return UpdateResult.UpToDate
-    }
-    return UpdateResult.UpToDate
-}
-
-private fun downloadApk(context: android.content.Context, urlStr: String, onProgress: (Float) -> Unit): java.io.File {
-    val url = URL(urlStr)
-    val conn = url.openConnection() as HttpURLConnection
-    conn.connectTimeout = 30000
-    conn.readTimeout = 30000
-    conn.instanceFollowRedirects = true
-
-    val totalSize = conn.contentLength.toLong()
-    val dir = context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS) ?: context.cacheDir
-    val file = java.io.File(dir, "Record-Life-Items-latest.apk")
-
-    conn.inputStream.use { input ->
-        file.outputStream().use { output ->
-            val buffer = ByteArray(8192)
-            var bytesRead: Int
-            var totalRead = 0L
-            while (input.read(buffer).also { bytesRead = it } != -1) {
-                output.write(buffer, 0, bytesRead)
-                totalRead += bytesRead
-                if (totalSize > 0) {
-                    onProgress(totalRead.toFloat() / totalSize)
-                }
-            }
-        }
-    }
-    conn.disconnect()
-    return file
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -389,7 +270,7 @@ private fun DeletedProjectItem(project: Project, onRestore: () -> Unit, onDelete
                     .align(Alignment.CenterEnd)
                     .width(deleteButtonWidthDp.dp)
                     .height(with(density) { cardHeight.toDp() })
-                    .clip(RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp))
+                    .clip(RoundedCornerShape(12.dp))
                     .background(Color(0xFFFF1744))
                     .clickable { showDeleteDialog = true },
                 horizontalArrangement = Arrangement.Center,
@@ -432,7 +313,7 @@ private fun DeletedProjectItem(project: Project, onRestore: () -> Unit, onDelete
                     if (project.description.isNotBlank()) { Text(text = project.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 }
                 Spacer(modifier = Modifier.width(8.dp))
-                TextButton(onClick = { showRestoreDialog = true }) { Text("restore") }
+                TextButton(onClick = { showRestoreDialog = true }) { Text("恢复") }
             }
         }
     }
@@ -440,19 +321,19 @@ private fun DeletedProjectItem(project: Project, onRestore: () -> Unit, onDelete
     if (showRestoreDialog) {
         AlertDialog(
             onDismissRequest = { showRestoreDialog = false },
-            title = { Text("restore project") },
-            text = { Text("confirm restore project?") },
-            confirmButton = { TextButton(onClick = { onRestore(); showRestoreDialog = false }) { Text("restore") } },
-            dismissButton = { TextButton(onClick = { showRestoreDialog = false }) { Text("cancel") } }
+            title = { Text("恢复项目") },
+            text = { Text("确定要恢复此项目吗？") },
+            confirmButton = { TextButton(onClick = { onRestore(); showRestoreDialog = false }) { Text("恢复") } },
+            dismissButton = { TextButton(onClick = { showRestoreDialog = false }) { Text("取消") } }
         )
     }
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("permanent delete") },
-            text = { Text("confirm permanent delete? cannot undo.") },
-            confirmButton = { TextButton(onClick = { onDelete(); showDeleteDialog = false }) { Text("delete", color = Color(0xFFFF1744)) } },
-            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("cancel") } }
+            title = { Text("永久删除") },
+            text = { Text("确定要永久删除此项目吗？此操作不可撤销。") },
+            confirmButton = { TextButton(onClick = { onDelete(); showDeleteDialog = false }) { Text("删除", color = Color(0xFFFF1744)) } },
+            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("取消") } }
         )
     }
 }
