@@ -452,7 +452,13 @@ fun ProjectEditScreen(
         WheelDatePicker(
             initialDate = startDate.ifBlank { LocalDate.now().toString() },
             onDateSelected = { date ->
-                viewModel.updateStartDate(date)
+                if (endDate.isNotBlank() && date > endDate) {
+                    viewModel.updateStartDate(date)
+                    viewModel.updateEndDate("")
+                    scope.launch { snackbarHostState.showSnackbar("开始日期大于结束日期，已清空结束日期") }
+                } else {
+                    viewModel.updateStartDate(date)
+                }
                 showStartDatePicker = false
             },
             onDismiss = { showStartDatePicker = false }

@@ -3,7 +3,12 @@ package com.bulubulu.recordlifeitems.ui.profile
 import android.content.Intent
 import android.net.Uri
 import android.os.Environment
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -51,6 +56,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -61,6 +67,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bulubulu.recordlifeitems.ui.components.ProjectIcon
@@ -71,6 +79,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
+import androidx.compose.ui.layout.onSizeChanged
+import kotlin.math.roundToInt
+import androidx.compose.ui.platform.LocalDensity
 
 // Version is read dynamically from PackageManager
 private const val GITHUB_API_URL = "https://api.github.com/repos/bulubulubu/Record-Life-Items/releases/latest"
@@ -361,25 +372,88 @@ fun DeletedProjectsScreen(
 @Composable
 private fun DeletedProjectItem(project: Project, onRestore: () -> Unit, onDelete: () -> Unit) {
     var showRestoreDialog by remember { mutableStateOf(false) }
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            ProjectIcon(iconName = project.icon, color = Color(project.color.toInt()), size = 36)
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = project.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (project.description.isNotBlank()) { Text(text = project.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var isSwiped by remember { mutableStateOf(false) }
+    val deleteButtonWidthDp = 80
+    val density = LocalDensity.current
+    val deleteButtonWidthPx = with(density) { deleteButtonWidthDp.dp.toPx() }
+    var offsetX by remember { mutableFloatStateOf(0f) }
+    var cardHeight by remember { mutableStateOf(0) }
+    val targetOffset = if (isSwiped) -deleteButtonWidthPx else 0f
+    val animatedOffsetX by animateFloatAsState(targetValue = targetOffset, animationSpec = tween(200), label = "offset")
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        if (isSwiped && cardHeight > 0) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .width(deleteButtonWidthDp.dp)
+                    .height(with(density) { cardHeight.toDp() })
+                    .clip(RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp))
+                    .background(Color(0xFFFF1744))
+                    .clickable { showDeleteDialog = true },
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(imageVector = Icons.Default.Delete, contentDescription = "delete", tint = Color.White, modifier = Modifier.size(24.dp))
             }
-            Spacer(modifier = Modifier.width(8.dp))
-            TextButton(onClick = { showRestoreDialog = true }) { Text("\u6062\u590d") }
+        }
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
+                .onSizeChanged { cardHeight = it.height }
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            isSwiped = offsetX < -deleteButtonWidthPx * 0.3f
+                            offsetX = 0f
+                        },
+                        onDragCancel = { offsetX = 0f },
+                        onHorizontalDrag = { _, dragAmount ->
+                            if (dragAmount < 0 || offsetX < 0) {
+                                offsetX = (offsetX + dragAmount).coerceIn(-deleteButtonWidthPx, 0f)
+                            }
+                        }
+                    )
+                }
+                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                    if (isSwiped) isSwiped = false
+                },
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                ProjectIcon(iconName = project.icon, color = Color(project.color.toInt()), size = 36)
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = project.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (project.description.isNotBlank()) { Text(text = project.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                TextButton(onClick = { showRestoreDialog = true }) { Text("restore") }
+            }
         }
     }
+
     if (showRestoreDialog) {
         AlertDialog(
             onDismissRequest = { showRestoreDialog = false },
-            title = { Text("\u6062\u590d\u9879\u76ee") },
-            text = { Text("\u786e\u5b9a\u8981\u6062\u590d\u300c${project.name}\u300d\u5417\uff1f") },
-            confirmButton = { TextButton(onClick = { onRestore(); showRestoreDialog = false }) { Text("\u6062\u590d") } },
-            dismissButton = { TextButton(onClick = { showRestoreDialog = false }) { Text("\u53d6\u6d88") } }
+            title = { Text("restore project") },
+            text = { Text("confirm restore project?") },
+            confirmButton = { TextButton(onClick = { onRestore(); showRestoreDialog = false }) { Text("restore") } },
+            dismissButton = { TextButton(onClick = { showRestoreDialog = false }) { Text("cancel") } }
+        )
+    }
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("permanent delete") },
+            text = { Text("confirm permanent delete? cannot undo.") },
+            confirmButton = { TextButton(onClick = { onDelete(); showDeleteDialog = false }) { Text("delete", color = Color(0xFFFF1744)) } },
+            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("cancel") } }
         )
     }
 }
+
