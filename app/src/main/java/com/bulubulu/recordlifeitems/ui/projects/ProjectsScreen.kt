@@ -77,17 +77,22 @@ fun ProjectsScreen(
     val projects by viewModel.allProjects.collectAsState()
     var currentlySwipedId by remember { mutableStateOf<Long?>(null) }
     val listState = rememberLazyListState()
+    val density = LocalDensity.current
 
     // Drag state
-    val density = LocalDensity.current
-    var draggedItemIndex by remember { mutableIntStateOf(-1) }
-    var draggedOffsetY by remember { mutableFloatStateOf(0f) }
-    var itemHeightPx by remember { mutableIntStateOf(0) }
+    var draggedIndex by remember { mutableIntStateOf(-1) }  // current index in list
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }  // pixel offset
+    var itemHeightPx by remember { mutableFloatStateOf(0f) }  // measured item height
+    val spacingPx = with(density) { 8.dp.toPx() }
 
     // Close swiped item when scrolling
     androidx.compose.runtime.LaunchedEffect(listState.isScrollInProgress) {
-        if (listState.isScrollInProgress && currentlySwipedId != null) {
+        if (listState.isScrollInProgress) {
             currentlySwipedId = null
+            if (draggedIndex != -1) {
+                draggedIndex = -1
+                dragOffsetY = 0f
+            }
         }
     }
 
@@ -111,14 +116,14 @@ fun ProjectsScreen(
             modifier = Modifier.fillMaxSize()
         ) {
             itemsIndexed(items = projects, key = { _, p -> p.id }) { index, project ->
-                val isDragging = draggedItemIndex == index
-                val offsetY = if (isDragging) draggedOffsetY else 0f
+                val isDragging = draggedIndex == index
+                val visualOffsetY = if (isDragging) dragOffsetY else 0f
 
                 SwipeableItem(
                     project = project,
-                    isSwiped = currentlySwipedId == project.id,
+                    isSwiped = currentlySwipedId == project.id && !isDragging,
                     isDragging = isDragging,
-                    offsetY = offsetY,
+                    offsetY = visualOffsetY,
                     onSwipeStart = { currentlySwipedId = project.id },
                     onSwipeCancel = { if (currentlySwipedId == project.id) currentlySwipedId = null },
                     onDelete = {
@@ -128,32 +133,42 @@ fun ProjectsScreen(
                     onClick = {
                         if (currentlySwipedId != null) {
                             currentlySwipedId = null
-                        } else if (draggedItemIndex == -1) {
+                        } else if (draggedIndex == -1) {
                             onNavigateToProjectDetail(project.id)
                         }
                     },
                     onDragStart = {
                         currentlySwipedId = null
-                        draggedItemIndex = index
-                        draggedOffsetY = 0f
+                        draggedIndex = index
+                        dragOffsetY = 0f
                     },
                     onDrag = { deltaY ->
-                        draggedOffsetY += deltaY
-                        // Calculate target index
-                        val spacingPx = with(density) { 8.dp.toPx() }
-                        val targetIndex = (index + (draggedOffsetY / (itemHeightPx + spacingPx)).toInt())
-                            .coerceIn(0, projects.size - 1)
-                        if (targetIndex != draggedItemIndex && targetIndex in projects.indices) {
-                            viewModel.reorderProjects(draggedItemIndex, targetIndex)
-                            draggedItemIndex = targetIndex
-                            draggedOffsetY = 0f
+                        dragOffsetY += deltaY
+
+                        // Calculate how many positions to move
+                        if (itemHeightPx > 0) {
+                            val totalItemSize = itemHeightPx + spacingPx
+                            val threshold = totalItemSize / 2f
+
+                            // Moving DOWN: dragOffsetY > threshold → swap with next
+                            while (dragOffsetY > threshold && draggedIndex < projects.size - 1) {
+                                viewModel.reorderProjects(draggedIndex, draggedIndex + 1)
+                                draggedIndex += 1
+                                dragOffsetY -= totalItemSize
+                            }
+                            // Moving UP: dragOffsetY < -threshold → swap with previous
+                            while (dragOffsetY < -threshold && draggedIndex > 0) {
+                                viewModel.reorderProjects(draggedIndex, draggedIndex - 1)
+                                draggedIndex -= 1
+                                dragOffsetY += totalItemSize
+                            }
                         }
                     },
                     onDragEnd = {
-                        draggedItemIndex = -1
-                        draggedOffsetY = 0f
+                        draggedIndex = -1
+                        dragOffsetY = 0f
                     },
-                    onItemHeightChanged = { itemHeightPx = it }
+                    onItemHeightChanged = { itemHeightPx = it.toFloat() }
                 )
             }
         }
@@ -177,12 +192,12 @@ private fun SwipeableItem(
 ) {
     val deleteButtonWidthDp = 80
     val deleteButtonWidthPx = with(LocalDensity.current) { deleteButtonWidthDp.dp.toPx() }
-    var offsetX by remember { mutableFloatStateOf(0f) }
+    var swipeOffsetX by remember { mutableFloatStateOf(0f) }
     var cardHeight by remember { mutableStateOf(0) }
     val density = LocalDensity.current
 
-    val targetOffset = if (isSwiped) -deleteButtonWidthPx else 0f
-    val animatedOffsetX by animateFloatAsState(targetValue = targetOffset, animationSpec = tween(200), label = "offset")
+    val targetSwipeX = if (isSwiped) -deleteButtonWidthPx else 0f
+    val animatedSwipeX by animateFloatAsState(targetValue = targetSwipeX, animationSpec = tween(200), label = "swipe")
 
     Box(
         modifier = Modifier
@@ -215,26 +230,24 @@ private fun SwipeableItem(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
+                .offset { IntOffset(animatedSwipeX.roundToInt(), 0) }
                 .shadow(if (isDragging) 8.dp else 0.dp, RoundedCornerShape(12.dp))
+                // Horizontal swipe gesture
                 .pointerInput(Unit) {
                     detectHorizontalDragGestures(
                         onDragEnd = {
-                            if (offsetX < -deleteButtonWidthPx * 0.3f) {
-                                onSwipeStart()
-                            } else {
-                                onSwipeCancel()
-                            }
-                            offsetX = 0f
+                            if (swipeOffsetX < -deleteButtonWidthPx * 0.3f) onSwipeStart() else onSwipeCancel()
+                            swipeOffsetX = 0f
                         },
-                        onDragCancel = { offsetX = 0f },
+                        onDragCancel = { swipeOffsetX = 0f },
                         onHorizontalDrag = { _, dragAmount ->
-                            if (dragAmount < 0 || offsetX < 0) {
-                                offsetX = (offsetX + dragAmount).coerceIn(-deleteButtonWidthPx, 0f)
+                            if (dragAmount < 0 || swipeOffsetX < 0) {
+                                swipeOffsetX = (swipeOffsetX + dragAmount).coerceIn(-deleteButtonWidthPx, 0f)
                             }
                         }
                     )
                 }
+                // Long press drag gesture (for reorder)
                 .pointerInput(Unit) {
                     detectDragGesturesAfterLongPress(
                         onDragStart = { onDragStart() },
