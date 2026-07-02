@@ -351,7 +351,7 @@ fun DeletedProjectsScreen(
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(items = deletedProjects, key = { it.id }) { project ->
-                    DeletedProjectItem(project = project, onRestore = { viewModel.restoreProject(project) })
+                    DeletedProjectItem(project = project, onRestore = { viewModel.restoreProject(project) }, onDelete = { viewModel.deleteProject(project) })
                 }
             }
         }
@@ -359,7 +359,7 @@ fun DeletedProjectsScreen(
 }
 
 @Composable
-private fun DeletedProjectItem(project: Project, onRestore: () -> Unit) {
+private fun DeletedProjectItem(project: Project, onRestore: () -> Unit, onDelete: () -> Unit) {
     var showRestoreDialog by remember { mutableStateOf(false) }
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {

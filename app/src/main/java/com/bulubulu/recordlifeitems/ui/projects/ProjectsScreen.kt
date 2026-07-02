@@ -148,6 +148,7 @@ private fun SwipeableItem(
                     .align(Alignment.CenterEnd)
                     .width(deleteButtonWidthDp.dp)
                     .height(with(LocalDensity.current) { cardHeight.toDp() })
+                    .clip(RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp))
                     .background(Color(0xFFFF1744))
                     .clickable { onDelete() },
                 horizontalArrangement = Arrangement.Center,

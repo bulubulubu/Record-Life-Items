@@ -38,6 +38,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -47,6 +49,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -77,12 +81,15 @@ fun ProjectEditScreen(
     val fields by viewModel.fields.collectAsState()
     val selectedIcon by viewModel.selectedIcon.collectAsState()
     var showIconPicker by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     val isNewProject by viewModel.isNewProject.collectAsState()
 
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showEndDatePicker by remember { mutableStateOf(false) }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -465,7 +472,12 @@ fun ProjectEditScreen(
         WheelDatePicker(
             initialDate = endDate.ifBlank { LocalDate.now().toString() },
             onDateSelected = { date ->
-                viewModel.updateEndDate(date)
+                if (startDate.isNotBlank() && date < startDate) {
+                    viewModel.updateEndDate("")
+                    scope.launch { snackbarHostState.showSnackbar("结束日期不能小于开始日期") }
+                } else {
+                    viewModel.updateEndDate(date)
+                }
                 showEndDatePicker = false
             },
             onDismiss = { showEndDatePicker = false }
