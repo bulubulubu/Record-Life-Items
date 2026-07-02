@@ -222,6 +222,15 @@ fun DeletedProjectsScreen(
     viewModel: ProjectsViewModel = viewModel()
 ) {
     val deletedProjects by viewModel.deletedProjects.collectAsState()
+    var currentlySwipedId by remember { mutableStateOf<Long?>(null) }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+
+    // Close swiped item when scrolling
+    androidx.compose.runtime.LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress && currentlySwipedId != null) {
+            currentlySwipedId = null
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -238,12 +247,20 @@ fun DeletedProjectsScreen(
             }
         } else {
             LazyColumn(
+                state = listState,
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = paddingValues.calculateTopPadding() + 8.dp, bottom = paddingValues.calculateBottomPadding() + 80.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(items = deletedProjects, key = { it.id }) { project ->
-                    DeletedProjectItem(project = project, onRestore = { viewModel.restoreProject(project) }, onDelete = { viewModel.deleteProject(project) })
+                    DeletedProjectItem(
+                        project = project,
+                        isSwiped = currentlySwipedId == project.id,
+                        onSwipeStart = { currentlySwipedId = project.id },
+                        onSwipeCancel = { if (currentlySwipedId == project.id) currentlySwipedId = null },
+                        onRestore = { viewModel.restoreProject(project) },
+                        onDelete = { currentlySwipedId = null; viewModel.deleteProject(project) }
+                    )
                 }
             }
         }
@@ -251,10 +268,16 @@ fun DeletedProjectsScreen(
 }
 
 @Composable
-private fun DeletedProjectItem(project: Project, onRestore: () -> Unit, onDelete: () -> Unit) {
+private fun DeletedProjectItem(
+    project: Project,
+    isSwiped: Boolean,
+    onSwipeStart: () -> Unit,
+    onSwipeCancel: () -> Unit,
+    onRestore: () -> Unit,
+    onDelete: () -> Unit
+) {
     var showRestoreDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var isSwiped by remember { mutableStateOf(false) }
     val deleteButtonWidthDp = 80
     val density = LocalDensity.current
     val deleteButtonWidthPx = with(density) { deleteButtonWidthDp.dp.toPx() }
@@ -288,7 +311,11 @@ private fun DeletedProjectItem(project: Project, onRestore: () -> Unit, onDelete
                 .pointerInput(Unit) {
                     detectHorizontalDragGestures(
                         onDragEnd = {
-                            isSwiped = offsetX < -deleteButtonWidthPx * 0.3f
+                            if (offsetX < -deleteButtonWidthPx * 0.3f) {
+                                onSwipeStart()
+                            } else {
+                                onSwipeCancel()
+                            }
                             offsetX = 0f
                         },
                         onDragCancel = { offsetX = 0f },
@@ -300,7 +327,7 @@ private fun DeletedProjectItem(project: Project, onRestore: () -> Unit, onDelete
                     )
                 }
                 .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
-                    if (isSwiped) isSwiped = false
+                    if (isSwiped) onSwipeCancel()
                 },
             shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
