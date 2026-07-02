@@ -60,6 +60,14 @@ class ProjectsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun saveReorder(items: List<Project>) {
+        viewModelScope.launch {
+            items.forEachIndexed { index, project ->
+                projectRepository.update(project.copy(sortOrder = index))
+            }
+        }
+    }
+
     fun reorderProjects(fromIndex: Int, toIndex: Int) {
         viewModelScope.launch {
             val currentList = allProjects.value.toMutableList()
